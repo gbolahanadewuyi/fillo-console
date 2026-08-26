@@ -1,0 +1,19 @@
+# .gcloudignore for fillo-console
+
+.gcloudignore
+.git
+.gitignore
+README.md
+node_modules/
+src/
+public/
+.env
+.env.*
+!.env.example
+vite.config.ts
+tsconfig*.json
+tailwind.config.ts
+postcss.config.js
+components.json
+eslint.config.js
+index.html
