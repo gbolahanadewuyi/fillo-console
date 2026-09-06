@@ -1,19 +1,16 @@
 # .gcloudignore for fillo-console
+#
+# package.json's "gcp-build" script (`vite build`) runs during deploy, inside Cloud Build —
+# so anything vite needs to build (index.html, src/, public/, and its config files) must NOT
+# be excluded here. Only exclude things the build genuinely doesn't need: git/editor metadata,
+# node_modules (Cloud Build installs its own), real secrets, and stale local build output.
 
 .gcloudignore
 .git
 .gitignore
 README.md
 node_modules/
-src/
-public/
+dist/
 .env
 .env.*
 !.env.example
-vite.config.ts
-tsconfig*.json
-tailwind.config.ts
-postcss.config.js
-components.json
-eslint.config.js
-index.html
