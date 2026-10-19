@@ -90,7 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const raw = localStorage.getItem(MOCK_STORAGE_KEY);
         if (raw) return JSON.parse(raw) as PlatformUser;
-      } catch {}
+      } catch {
+        // Ignore malformed demo-session data and continue signed out.
+      }
     }
     return null;
   });
@@ -104,7 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isAllowedControlEmail(email)) {
           try {
             await firebaseSignOut(firebaseAuth);
-          } catch {}
+          } catch {
+            // Sign-out is best-effort; the local session is cleared below.
+          }
           setUser(null);
         } else {
           try {
@@ -143,7 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setLoading(false);
               return;
             }
-          } catch {}
+          } catch {
+            // Ignore malformed demo-session data and continue signed out.
+          }
         }
         setUser(null);
       }
@@ -203,7 +209,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             try {
               localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockUser));
-            } catch {}
+            } catch {
+              // Demo persistence is best-effort and may be blocked by the browser.
+            }
             primeAuthToken("");
             setUser(mockUser);
             registeredRef.current = true;
@@ -229,7 +237,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registeredRef.current = false;
     try {
       localStorage.removeItem(MOCK_STORAGE_KEY);
-    } catch {}
+    } catch {
+      // Local storage may be unavailable; Firebase sign-out must still proceed.
+    }
     primeAuthToken("");
     await firebaseSignOut(firebaseAuth);
     setUser(null);
