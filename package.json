@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "verify": "eslint . && vitest run && vite build",
     "test:watch": "vitest",
     "emulators": "firebase emulators:start --only auth --project demo-eop --import=./emulator-data --export-on-exit=./emulator-data",
     "seed:emulator": "tsx scripts/seed-emulator-auth.ts"
