@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { Shield, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api";
 import { mockPlatformUsers, MOCK_PLATFORM_PASSWORD, getPlatformRoleMeta } from "@/lib/mock/users";
+
+// The demo accounts exist only in the local Auth emulator. Real builds must not advertise them.
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
 
 export default function Login() {
   const { user, login, loading } = useAuth();
@@ -91,6 +94,11 @@ export default function Login() {
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in
               </Button>
+              <p className="text-xs text-center">
+                <Link to="/forgot-password" className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
+                  Forgot your password?
+                </Link>
+              </p>
               <p className="text-xs text-center text-muted-foreground">
                 Contact a platform owner if you need access. All sign-ins are logged.
               </p>
@@ -98,6 +106,7 @@ export default function Login() {
           </CardContent>
         </Card>
 
+        {SHOW_DEMO_ACCOUNTS && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">Seeded demo accounts (Auth emulator)</CardTitle>
@@ -123,6 +132,7 @@ export default function Login() {
             })}
           </CardContent>
         </Card>
+        )}
 
         <p className="text-center text-xs text-muted-foreground">
           Fillo Console is an internal operator tool. Tenant data is isolated per company. All sign-ins are audited.

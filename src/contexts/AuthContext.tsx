@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseAuth, primeAuthToken, getFcmToken } from "@/lib/firebase";
 import { apiRequest, ApiError } from "@/services/api";
+import { isLocalAuth } from "@/lib/auth-mode";
+import * as ownAuth from "@/lib/own-auth";
 import { findMockPlatformUserByEmail, MOCK_PLATFORM_PASSWORD } from "@/lib/mock/users";
 
 export type PlatformRole = "platform_owner" | "platform_admin" | "platform_support" | "platform_finance";
@@ -82,6 +84,29 @@ async function fetchPlatformProfile(): Promise<PlatformUser | null> {
   }
 }
 
+/** Own-auth sign-in must end with a platform profile: an account that is not a platform member has no
+ *  business in the console, so its session is ended rather than left half signed in. */
+async function loadLocalProfile(): Promise<PlatformUser> {
+  try {
+    const profile = await fetchPlatformProfile();
+    if (profile) return profile;
+  } catch (err) {
+    await ownAuth.logout();
+    if (err instanceof ApiError && err.status === 403) {
+      throw new ApiError(403, "This account does not have access to the console.");
+    }
+    throw err;
+  }
+  await ownAuth.logout();
+  throw new ApiError(503, "The control plane is not available right now. Try again shortly.");
+}
+
+function messageFor(err: unknown): ApiError {
+  if (err instanceof ApiError) return err;
+  if (err instanceof ownAuth.OwnAuthError) return new ApiError(err.status, err.message);
+  return new ApiError(0, "Network error. Check your connection and try again.");
+}
+
 const MOCK_STORAGE_KEY = "fillo_mock_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -100,6 +125,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const registeredRef = useRef(false);
 
   useEffect(() => {
+    if (isLocalAuth) {
+      // Own auth: restore the session from the refresh cookie, then follow later session loss.
+      let cancelled = false;
+      (async () => {
+        try {
+          if (await ownAuth.refresh()) {
+            const profile = await loadLocalProfile();
+            if (!cancelled) setUser(profile);
+          } else if (!cancelled) {
+            setUser(null);
+          }
+        } catch {
+          if (!cancelled) setUser(null);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+      const stop = ownAuth.onSessionLost(() => setUser(null));
+      return () => {
+        cancelled = true;
+        stop();
+      };
+    }
+
     const unsub = firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
         const email = firebaseUser.email?.toLowerCase() ?? "";
@@ -162,6 +211,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const GENERIC = new ApiError(401, "Invalid email or password.");
     const lower = email.toLowerCase();
     if (!isAllowedControlEmail(lower)) throw GENERIC;
+    if (isLocalAuth) {
+      try {
+        await ownAuth.login(email, password);
+      } catch (err) {
+        throw messageFor(err);
+      }
+      setUser(await loadLocalProfile());
+      return;
+    }
     try {
       const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
       const token = await cred.user.getIdToken();
@@ -233,6 +291,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (isLocalAuth) {
+      await ownAuth.logout();
+      setUser(null);
+      return;
+    }
     await unregisterFcm();
     registeredRef.current = false;
     try {
@@ -246,6 +309,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
+    if (isLocalAuth) {
+      try {
+        await ownAuth.forgotPassword(email);
+      } catch (err) {
+        throw messageFor(err);
+      }
+      return;
+    }
     await sendPasswordResetEmail(firebaseAuth, email);
   }, []);
 

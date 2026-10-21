@@ -1,5 +1,7 @@
 import { signOut } from "firebase/auth";
 import { firebaseAuth, getAuthToken } from "@/lib/firebase";
+import { isLocalAuth } from "@/lib/auth-mode";
+import { dropSession, getAccessToken, refresh as refreshOwnSession } from "@/lib/own-auth";
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -23,7 +25,8 @@ let loggingOut = false;
 function handleSessionExpired(): never {
   if (!loggingOut) {
     loggingOut = true;
-    signOut(firebaseAuth).catch(() => {});
+    if (isLocalAuth) dropSession();
+    else signOut(firebaseAuth).catch(() => {});
     window.location.href = "/login";
   }
   throw new ApiError(401, "Session expired. Please log in again.", "unauthenticated");
@@ -66,11 +69,28 @@ export async function apiRequest<T = unknown>(
     return res.json() as Promise<T>;
   }
 
-  const token = getAuthToken();
+  const currentToken = () => (isLocalAuth ? getAccessToken() : getAuthToken());
+
+  // Own auth: the in-memory token is gone after a page reload, but the refresh cookie survives. Get a
+  // new token before giving up, so a request fired during start-up does not bounce the user to login.
+  if (!currentToken() && isLocalAuth) await refreshOwnSession();
+  let token = currentToken();
   if (!token) throw new ApiError(401, "Not authenticated", "unauthenticated");
 
-  headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetchWithTimeout(`${API_BASE}${path}`, init);
+  // Fresh headers per attempt: a retry must not rewrite the headers of the request already sent.
+  const send = (bearer: string) =>
+    fetchWithTimeout(`${API_BASE}${path}`, { ...init, headers: { ...headers, Authorization: `Bearer ${bearer}` } });
+
+  let res = await send(token);
+
+  // Own auth: an expired access token is normal (the refresh timer may not have run, e.g. a sleeping
+  // laptop). Renew once and retry; only a failed renewal means the session is really over.
+  if (res.status === 401 && isLocalAuth) {
+    if (await refreshOwnSession()) {
+      token = currentToken();
+      if (token) res = await send(token);
+    }
+  }
 
   if (res.status === 401) handleSessionExpired();
 

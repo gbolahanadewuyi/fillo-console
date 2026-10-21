@@ -8,6 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
 
 const Login = lazy(() => import("@/pages/Login"));
+const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Companies = lazy(() => import("@/pages/Companies"));
 const CompanyDetail = lazy(() => import("@/pages/CompanyDetail"));
@@ -51,6 +53,8 @@ export default function App() {
             <Suspense fallback={<Fallback />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AdminLayout />}>
                     <Route path="/" element={<Dashboard />} />
