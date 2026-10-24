@@ -11,12 +11,12 @@ describe("Logo", () => {
   });
 
   it("on a light page shows the dark art, and swaps to the reversed art in dark mode", () => {
-    render(<Logo size={64} />);
-    const [light, dark] = screen.getAllByAltText("Fillo", { hidden: true });
-    expect(light).toHaveAttribute("src", "/fillo-lockup-horizontal.png");
-    expect(light).toHaveClass("dark:hidden");
-    expect(dark).toHaveAttribute("src", "/fillo-lockup-horizontal-reversed.png");
-    expect(dark).toHaveClass("hidden", "dark:block");
+    const { container } = render(<Logo size={64} />);
+    const [light, dark] = Array.from(container.querySelectorAll("img"));
+    expect(light!).toHaveAttribute("src", "/fillo-lockup-horizontal.png");
+    expect(light!).toHaveClass("dark:hidden");
+    expect(dark!).toHaveAttribute("src", "/fillo-lockup-horizontal-reversed.png");
+    expect(dark!).toHaveClass("hidden", "dark:block");
   });
 
   it("keeps the real proportions: the lockup is wider than tall, the mark is square", () => {
