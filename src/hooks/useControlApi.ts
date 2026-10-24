@@ -77,6 +77,8 @@ export interface ControlActivity {
   resourceLabel?: string | null;
   companyId?: string | null;
   companyName?: string | null;
+  /** Why the person made this change, when one was recorded. */
+  reason?: string | null;
   createdAt: string;
 }
 

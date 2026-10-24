@@ -83,6 +83,16 @@ describe("what the API returns is what is shown", () => {
     expect(screen.queryByText("0 failing")).not.toBeInTheDocument();
   });
 
+  it("shows the reason a person gave next to their change in the audit trail", async () => {
+    apiRequest.mockResolvedValue({
+      data: [{ id: "a1", actorId: "u1", actorName: "Fillo Admin", action: "company.suspended", resourceType: "Company", resourceId: "c1", resourceLabel: "Real Gas Ltd", companyId: "c1", companyName: "Real Gas Ltd", reason: "unpaid invoice", createdAt: "2026-10-24T10:00:00Z" }],
+      page: 1, pageSize: 20, total: 1, totalPages: 1,
+    });
+    show(<AuditLogs />);
+    expect(await screen.findByText("unpaid invoice")).toBeInTheDocument();
+    expect(screen.getByText("Fillo Admin")).toBeInTheDocument();
+  });
+
   it("shows an unknown integration as unknown, not healthy", async () => {
     apiRequest.mockResolvedValue([{ id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "unknown" }]);
     show(<Integrations />);

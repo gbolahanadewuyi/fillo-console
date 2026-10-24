@@ -71,6 +71,7 @@ export function ActivityLedger({ title, description, source }: Props) {
                   <TableHead>Action</TableHead>
                   <TableHead>Resource</TableHead>
                   <TableHead>Company</TableHead>
+                  <TableHead>Reason</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -91,11 +92,12 @@ export function ActivityLedger({ title, description, source }: Props) {
                         "—"
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[22rem]">{a.reason ?? "—"}</TableCell>
                   </TableRow>
                 ))}
                 {!isLoading && (data?.data?.length ?? 0) === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                       {search || action ? "Nothing matches those filters." : "Nothing recorded yet."}
                     </TableCell>
                   </TableRow>
