@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Store, Plug, Flag, FileText, Activity, ScrollText, Search, Settings, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Users, Store, Plug, Flag, FileText, Activity, ScrollText, Search, Settings, ShoppingCart, CreditCard, Boxes, type LucideIcon } from "lucide-react";
 import { PAGE_PATHS, type PageKey } from "@/lib/permissions";
 
 export interface NavItem {
@@ -19,6 +19,7 @@ const item = (page: PageKey, title: string, icon: LucideIcon): NavItem => ({ pag
 export const NAV: NavGroup[] = [
   { label: "Overview", items: [item("dashboard", "Dashboard", LayoutDashboard)] },
   { label: "Customers", items: [item("companies", "Companies", Building2), item("stations", "Stations", Store), item("users", "Users", Users)] },
+  { label: "Records", items: [item("orders", "Orders", ShoppingCart), item("payments", "Payments", CreditCard), item("stock", "Stock", Boxes)] },
   {
     label: "Platform",
     items: [item("integrations", "Integrations", Plug), item("feature-flags", "Feature Flags", Flag), item("plans", "Plans & Billing", FileText), item("settings", "System Settings", Settings)],

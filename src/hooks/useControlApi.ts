@@ -358,6 +358,114 @@ export function useInviteAction() {
   });
 }
 
+export interface ControlOrderRow {
+  id: string;
+  orderNumber: number;
+  companyId: string;
+  companyName: string;
+  stationName: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  type: string;
+  channel: string;
+  status: string;
+  paymentStatus: string;
+  total: string;
+  deleted: boolean;
+  createdAt: string;
+}
+
+export interface ControlOrder {
+  id: string;
+  orderNumber: number;
+  companyId: string;
+  companyName: string;
+  stationName: string;
+  customer: { id: string; name: string; phone: string | null } | null;
+  type: string;
+  channel: string;
+  status: string;
+  paymentStatus: string;
+  subtotal: string;
+  discount: string;
+  vatAmount: string;
+  total: string;
+  paidTotal: string;
+  refundedTotal: string;
+  balanceDue: string;
+  notes: string | null;
+  deletedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  invoice: { invoiceNumber: number; createdAt: string } | null;
+  intake: { id: string; channel: string; source: string; customerPhone: string | null; messageText: string; status: string; createdAt: string } | null;
+  deliveries: { id: string; status: string; createdAt: string }[];
+  lines: { id: string; productName: string; quantity: string; unit: string; unitPrice: string; lineTotal: string }[];
+  payments: { id: string; amount: string; method: string; reference: string | null; paidAt: string; recordedBy: string | null; pos: { id: string; provider: string; externalReference: string } | null }[];
+  refunds: { id: string; amount: string; method: string; reason: string | null; createdAt: string }[];
+  movements: { id: string; productName: string; quantity: string; type: string; createdAt: string }[];
+  timeline: { id: string; action: string; actorName: string | null; createdAt: string }[];
+}
+
+export interface ControlPosTransaction {
+  id: string;
+  companyId: string;
+  companyName: string;
+  provider: string;
+  externalReference: string;
+  amount: string;
+  fee: string | null;
+  status: string;
+  paidAt: string;
+  matched: boolean;
+  matchedOrderId: string | null;
+  matchedOrderNumber: number | null;
+  matchedAt: string | null;
+}
+
+export interface ControlMovement {
+  id: string;
+  companyId: string;
+  companyName: string;
+  stationName: string;
+  productName: string;
+  unit: string;
+  quantity: string;
+  type: string;
+  orderId: string | null;
+  orderNumber: number | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export function useControlOrders(params: { page?: number; pageSize?: number; companyId?: string; status?: string; paymentStatus?: string; search?: string } = {}) {
+  const { page = 1, pageSize = 20, ...rest } = params;
+  return useQuery({
+    queryKey: ["control", "orders", page, pageSize, rest],
+    queryFn: () => apiRequest<Paginated<ControlOrderRow>>("GET", `/control/orders?${listParams({ page, pageSize, ...rest })}`),
+  });
+}
+
+export function useControlOrder(id: string | undefined) {
+  return useQuery({ queryKey: ["control", "order", id], queryFn: () => apiRequest<ControlOrder>("GET", `/control/orders/${id}`), enabled: !!id });
+}
+
+export function useControlPosTransactions(params: { page?: number; pageSize?: number; companyId?: string; matched?: string; status?: string } = {}) {
+  const { page = 1, pageSize = 20, ...rest } = params;
+  return useQuery({
+    queryKey: ["control", "pos-transactions", page, pageSize, rest],
+    queryFn: () => apiRequest<Paginated<ControlPosTransaction>>("GET", `/control/pos-transactions?${listParams({ page, pageSize, ...rest })}`),
+  });
+}
+
+export function useControlMovements(params: { page?: number; pageSize?: number; companyId?: string; type?: string } = {}) {
+  const { page = 1, pageSize = 20, ...rest } = params;
+  return useQuery({
+    queryKey: ["control", "movements", page, pageSize, rest],
+    queryFn: () => apiRequest<Paginated<ControlMovement>>("GET", `/control/inventory-movements?${listParams({ page, pageSize, ...rest })}`),
+  });
+}
+
 export function useRetryOutbox() {
   const qc = useQueryClient();
   return useMutation({

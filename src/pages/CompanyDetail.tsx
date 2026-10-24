@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useControlCompany, useControlStations, useControlUsers, useControlActivity, useUnsuspendCompany, type ControlCompany } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,6 +89,19 @@ export default function CompanyDetail() {
           <p className="text-sm text-muted-foreground">
             {company.industry ?? "—"} • <StatusBadge status={company.status} className="ml-1" /> • {company.subscriptionStatus} • Created {new Date(company.createdAt).toLocaleDateString()}
           </p>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          {(
+            [
+              ["orders", "Orders"],
+              ["payments", "Payments"],
+              ["stock", "Stock"],
+            ] as const
+          ).map(([path, label]) => (
+            <Link key={path} to={`/${path}?companyId=${id}`} className="text-primary hover:underline">
+              {label}
+            </Link>
+          ))}
         </div>
         {suspended
           ? can(user?.platformRole, "company.unsuspend") && (

@@ -28,7 +28,7 @@ describe("can (mirrors the API role matrix)", () => {
 
 describe("canViewPage", () => {
   it("every role sees the pages used to investigate", () => {
-    for (const r of roles) for (const p of ["dashboard", "companies", "users", "integrations", "audit-logs", "support"] as PageKey[]) expect(canViewPage(r, p)).toBe(true);
+    for (const r of roles) for (const p of ["dashboard", "companies", "users", "orders", "payments", "stock", "integrations", "audit-logs", "support"] as PageKey[]) expect(canViewPage(r, p)).toBe(true);
   });
   it("finance sees plans and billing but not platform internals (it used to see all of them)", () => {
     expect(canViewPage("platform_finance", "plans")).toBe(true);

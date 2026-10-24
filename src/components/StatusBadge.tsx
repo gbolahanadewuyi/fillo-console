@@ -19,6 +19,16 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   error: { label: "Error", variant: "destructive" },
   healthy: { label: "Healthy", variant: "success" },
   degraded: { label: "Degraded", variant: "warning" },
+  // orders and payments
+  paid: { label: "Paid", variant: "success" },
+  partially_paid: { label: "Part paid", variant: "warning" },
+  unpaid: { label: "Unpaid", variant: "warning" },
+  awaiting_payment: { label: "Awaiting payment", variant: "warning" },
+  completed: { label: "Completed", variant: "success" },
+  cancelled: { label: "Cancelled", variant: "muted" },
+  draft: { label: "Draft", variant: "muted" },
+  successful: { label: "Successful", variant: "success" },
+  reversed: { label: "Reversed", variant: "destructive" },
   // generic
   pending: { label: "Pending", variant: "warning" },
   expired: { label: "Expired", variant: "destructive" },

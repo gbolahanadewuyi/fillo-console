@@ -41,6 +41,9 @@ export type PageKey =
   | "companies"
   | "stations"
   | "users"
+  | "orders"
+  | "payments"
+  | "stock"
   | "integrations"
   | "feature-flags"
   | "plans"
@@ -54,6 +57,9 @@ export const PAGE_PATHS: Record<PageKey, string> = {
   companies: "/companies",
   stations: "/stations",
   users: "/users",
+  orders: "/orders",
+  payments: "/payments",
+  stock: "/stock",
   integrations: "/integrations",
   "feature-flags": "/feature-flags",
   plans: "/plans",
@@ -71,6 +77,9 @@ const PAGE_ROLES: Record<PageKey, readonly PlatformRole[]> = {
   companies: EVERYONE,
   stations: EVERYONE,
   users: EVERYONE,
+  orders: EVERYONE,
+  payments: EVERYONE,
+  stock: EVERYONE,
   integrations: EVERYONE,
   activity: EVERYONE,
   "audit-logs": EVERYONE,

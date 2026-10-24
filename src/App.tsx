@@ -16,6 +16,10 @@ const CompanyDetail = lazy(() => import("@/pages/CompanyDetail"));
 const Stations = lazy(() => import("@/pages/Stations"));
 const UsersPage = lazy(() => import("@/pages/Users"));
 const UserAccess = lazy(() => import("@/pages/UserAccess"));
+const Orders = lazy(() => import("@/pages/Orders"));
+const OrderDetail = lazy(() => import("@/pages/OrderDetail"));
+const Payments = lazy(() => import("@/pages/Payments"));
+const Stock = lazy(() => import("@/pages/Stock"));
 const Integrations = lazy(() => import("@/pages/Integrations"));
 const FeatureFlags = lazy(() => import("@/pages/FeatureFlags"));
 const Plans = lazy(() => import("@/pages/Plans"));
@@ -62,6 +66,10 @@ export default function App() {
                     <Route path="/stations" element={<Stations />} />
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/users/:id" element={<UserAccess />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/orders/:id" element={<OrderDetail />} />
+                    <Route path="/payments" element={<Payments />} />
+                    <Route path="/stock" element={<Stock />} />
                     <Route path="/integrations" element={<Integrations />} />
                     <Route path="/feature-flags" element={<FeatureFlags />} />
                     <Route path="/plans" element={<Plans />} />
