@@ -73,8 +73,10 @@ export default function UserAccess() {
 
   const copy = pending ? COPY(pending, user.name, user.email) : null;
   const canResend = assist && !isStaffAccount && invite && (invite.status === "PENDING" || invite.status === "EXPIRED") && !signIn.hasLogin;
-  const resetOffered = assist && !isStaffAccount && signIn.hasLogin;
-  const unlockOffered = assist && !isStaffAccount && signIn.hasLogin && !!signIn.lockedUntil;
+  // An action a finding already offers is not repeated in the Actions card.
+  const onFinding = new Set(data.findings.filter((f) => f.action && assist && !isStaffAccount && (f.action !== "invite.resend" || canResend)).map((f) => f.action));
+  const resetOffered = assist && !isStaffAccount && signIn.hasLogin && !onFinding.has("user.sendReset");
+  const unlockOffered = assist && !isStaffAccount && signIn.hasLogin && !!signIn.lockedUntil && !onFinding.has("user.unlock");
 
   return (
     <div className="space-y-4">
@@ -149,11 +151,11 @@ export default function UserAccess() {
             {isStaffAccount && <p className="text-sm text-muted-foreground">Fillo staff accounts are managed outside the console.</p>}
             {unlockOffered && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "user", action: "unlock" })}>Unlock login</Button>}
             {resetOffered && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "user", action: "send-reset" })}>Send reset email</Button>}
-            {canResend && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "invite", action: "resend" })}>Resend invitation</Button>}
+            {canResend && !onFinding.has("invite.resend") && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "invite", action: "resend" })}>Resend invitation</Button>}
             {assist && !isStaffAccount && invite?.status === "PENDING" && !signIn.hasLogin && (
               <Button size="sm" variant="outline" onClick={() => setPending({ kind: "invite", action: "revoke" })}>Revoke invitation</Button>
             )}
-            {assist && !isStaffAccount && user.status === "suspended" && <Button size="sm" onClick={() => setPending({ kind: "user", action: "reactivate" })}>Reactivate</Button>}
+            {assist && !isStaffAccount && user.status === "suspended" && !onFinding.has("user.reactivate") && <Button size="sm" onClick={() => setPending({ kind: "user", action: "reactivate" })}>Reactivate</Button>}
             {suspend && !isStaffAccount && !user.isOwner && user.status === "active" && (
               <Button size="sm" variant="destructive" onClick={() => setPending({ kind: "user", action: "suspend" })}>Suspend</Button>
             )}

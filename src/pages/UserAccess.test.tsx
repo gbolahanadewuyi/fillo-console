@@ -128,6 +128,13 @@ describe("UserAccess", () => {
     expect(screen.queryByRole("button", { name: "Send reset email" })).not.toBeInTheDocument();
   });
 
+  it("an action a finding already offers is not repeated in the Actions card", async () => {
+    mockAccess({ canSignIn: false, locked: true, findings: [locked] });
+    show();
+    await screen.findByText("Their login is temporarily locked");
+    expect(screen.getAllByRole("button", { name: "Unlock login" })).toHaveLength(1);
+  });
+
   it("an API failure says so and shows no person", async () => {
     apiRequest.mockRejectedValue(new ApiError(404, "User not found"));
     show();
