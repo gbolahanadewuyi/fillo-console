@@ -8,7 +8,7 @@
  */
 import type { PlatformRole } from "@/contexts/AuthContext";
 
-export type Action = "company.suspend" | "company.unsuspend" | "company.branding" | "flag.update";
+export type Action = "company.suspend" | "company.unsuspend" | "company.branding" | "flag.update" | "outbox.retry";
 
 const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
 
@@ -17,6 +17,7 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "company.unsuspend": ADMIN,
   "company.branding": ADMIN,
   "flag.update": ["platform_owner"],
+  "outbox.retry": ADMIN,
 };
 
 export function can(role: PlatformRole | undefined, action: Action): boolean {

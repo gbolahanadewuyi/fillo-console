@@ -72,15 +72,43 @@ describe("what the API returns is what is shown", () => {
     expect(await screen.findByText("Real Gas Ltd")).toBeInTheDocument();
   });
 
-  it("does not claim zero failing integrations when failures are not tracked", async () => {
+  const stats = { totalCompanies: 1, activeCompanies: 1, trialCompanies: 0, suspendedCompanies: 0, totalStations: 1, activeStations: 1, totalUsers: 1, activeUsers: 1, ordersToday: 0, revenueToday: "0", revenue30d: [], activeIntegrations: 2, failedIntegrations: 1 };
+  const dashboardApi = (attention: unknown[]) =>
     apiRequest.mockImplementation(async (_m: string, path: string) => {
-      if (path.startsWith("/control/stats"))
-        return { totalCompanies: 1, activeCompanies: 1, trialCompanies: 0, suspendedCompanies: 0, totalStations: 1, activeStations: 1, totalUsers: 1, activeUsers: 1, ordersToday: 0, revenueToday: "0", revenue30d: [], activeIntegrations: 1, failedIntegrations: null };
+      if (path.startsWith("/control/stats")) return stats;
+      if (path.startsWith("/control/attention")) return { data: attention };
+      return { data: [], page: 1, pageSize: 8, total: 0, totalPages: 1 };
+    });
+
+  it("the dashboard lists what needs attention, with the reason, and links the company", async () => {
+    dashboardApi([
+      { id: "integration:w1", severity: "critical", kind: "integration", title: "whatsapp for Real Gas Ltd is failing", detail: "Meta answered 401", companyId: "c1" },
+      { id: "job:notify-sweep", severity: "warning", kind: "job", title: "notify-sweep has stopped running", detail: "It should run every 5 minutes." },
+    ]);
+    show(<Dashboard />);
+    expect(await screen.findByText("whatsapp for Real Gas Ltd is failing")).toBeInTheDocument();
+    expect(screen.getByText("Meta answered 401")).toBeInTheDocument();
+    expect(screen.getByText("notify-sweep has stopped running")).toBeInTheDocument();
+    expect(screen.getByText("Something is failing")).toBeInTheDocument();
+    expect(screen.getByText("whatsapp for Real Gas Ltd is failing").closest("a")).toHaveAttribute("href", "/companies/c1");
+  });
+
+  it("an empty attention list says nothing is flagged, and counts zero", async () => {
+    dashboardApi([]);
+    show(<Dashboard />);
+    expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing failing")).toBeInTheDocument();
+  });
+
+  it("a failed attention request says so instead of claiming all is well", async () => {
+    apiRequest.mockImplementation(async (_m: string, path: string) => {
+      if (path.startsWith("/control/stats")) return stats;
+      if (path.startsWith("/control/attention")) throw new ApiError(500, "attention is down");
       return { data: [], page: 1, pageSize: 8, total: 0, totalPages: 1 };
     });
     show(<Dashboard />);
-    expect(await screen.findByText("Failures are not tracked yet")).toBeInTheDocument();
-    expect(screen.queryByText("0 failing")).not.toBeInTheDocument();
+    expect(await screen.findByText(/couldn't load the attention list/i)).toBeInTheDocument();
+    expect(screen.queryByText("Nothing is flagged.")).not.toBeInTheDocument();
   });
 
   it("shows the reason a person gave next to their change in the audit trail", async () => {
@@ -93,8 +121,23 @@ describe("what the API returns is what is shown", () => {
     expect(screen.getByText("Fillo Admin")).toBeInTheDocument();
   });
 
+  it("shows an integration's real problem next to it", async () => {
+    apiRequest.mockImplementation(async (_m: string, path: string) =>
+      path.startsWith("/control/jobs")
+        ? { jobs: [], recentFailures: [], outbox: { pending: 0, stuck: 0, oldestAt: null, lastError: null } }
+        : [{ id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "error", lastFailureAt: "2026-10-24T09:00:00Z", lastFailureDetail: "Meta answered 401" }],
+    );
+    show(<Integrations />);
+    expect(await screen.findByText("Error")).toBeInTheDocument();
+    expect(screen.getByText(/Meta answered 401/)).toBeInTheDocument();
+  });
+
   it("shows an unknown integration as unknown, not healthy", async () => {
-    apiRequest.mockResolvedValue([{ id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "unknown" }]);
+    apiRequest.mockImplementation(async (_m: string, path: string) =>
+      path.startsWith("/control/jobs")
+        ? { jobs: [], recentFailures: [], outbox: { pending: 0, stuck: 0, oldestAt: null, lastError: null } }
+        : [{ id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "unknown" }],
+    );
     show(<Integrations />);
     expect(await screen.findByText("Unknown")).toBeInTheDocument();
     expect(screen.queryByText("Healthy")).not.toBeInTheDocument();

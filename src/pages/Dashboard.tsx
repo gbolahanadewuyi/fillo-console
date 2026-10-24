@@ -1,4 +1,4 @@
-import { useControlStats, useControlActivity, useControlIntegrations } from "@/hooks/useControlApi";
+import { useControlStats, useControlActivity, useControlIntegrations, useControlAttention, type AttentionItem } from "@/hooks/useControlApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,10 +23,31 @@ function Kpi({ icon: Icon, label, value, sub }: { icon: React.ElementType; label
   );
 }
 
+function AttentionRow({ item }: { item: AttentionItem }) {
+  const body = (
+    <div className="flex items-start gap-3 rounded border px-3 py-2">
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.severity === "critical" ? "bg-red-500" : "bg-amber-500"}`} aria-label={item.severity} />
+      <div className="min-w-0">
+        <div className="text-sm font-medium leading-snug">{item.title}</div>
+        <div className="text-xs text-muted-foreground break-words">{item.detail}</div>
+      </div>
+    </div>
+  );
+  const to = item.companyId ? `/companies/${item.companyId}` : item.kind === "job" || item.kind === "outbox" || item.kind === "integration" || item.kind === "rejected_webhooks" ? "/integrations" : undefined;
+  return to ? (
+    <Link to={to} className="block hover:bg-muted/50 rounded">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading, error: statsError, refetch: refetchStats } = useControlStats();
   const { data: activityPage, error: activityError } = useControlActivity({ pageSize: 8 });
   const { data: integrations, error: integrationsError } = useControlIntegrations();
+  const { data: attention, error: attentionError } = useControlAttention();
 
   if (statsError) {
     return (
@@ -49,7 +70,6 @@ export default function Dashboard() {
     );
   }
 
-  const failed = integrations?.filter((i) => i.status === "error" || i.status === "degraded") ?? [];
   const unmonitored = integrations?.filter((i) => i.status === "unknown").length ?? 0;
   const revenue14 = stats.revenue30d.reduce((a, b) => a + b.revenue, 0);
 
@@ -66,19 +86,14 @@ export default function Dashboard() {
         <Kpi icon={Users} label="Active users" value={stats.activeUsers} sub={`${stats.totalUsers} total`} />
         <Kpi icon={ShoppingCart} label="Orders today" value={stats.ordersToday} sub="Across all companies" />
         <Kpi icon={CreditCard} label="Revenue today" value={`₦${Number(stats.revenueToday).toLocaleString()}`} sub="Payments recorded today" />
-        <Kpi
-          icon={Plug}
-          label="Integrations"
-          value={`${stats.activeIntegrations} connected`}
-          sub={stats.failedIntegrations === null ? "Failures are not tracked yet" : `${stats.failedIntegrations} failing`}
-        />
+        <Kpi icon={Plug} label="Integrations" value={`${stats.activeIntegrations} connected`} sub={`${stats.failedIntegrations} failing`} />
         <Kpi
           icon={AlertTriangle}
-          label="Requires attention"
-          value={stats.suspendedCompanies + failed.length}
-          sub="Suspended companies and failing integrations"
+          label="Needs attention"
+          value={attentionError ? "—" : (attention?.length ?? "…")}
+          sub={attentionError ? "Couldn't load the list" : (attention ?? []).some((i) => i.severity === "critical") ? "Something is failing" : "Nothing failing"}
         />
-        <Kpi icon={TrendingUp} label="14-day payments" value={`₦${revenue14.toLocaleString()}`} sub="Payments recorded, last 14 days" />
+                <Kpi icon={TrendingUp} label="14-day payments" value={`₦${revenue14.toLocaleString()}`} sub="Payments recorded, last 14 days" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -128,7 +143,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-sm">Integration health</CardTitle>
             <CardDescription>
-              {unmonitored > 0 ? `${unmonitored} of ${integrations?.length ?? 0} have no health data yet.` : "WhatsApp, Moniepoint, OPay."}
+              {unmonitored > 0 ? `${unmonitored} of ${integrations?.length ?? 0} had no activity in the last 7 days, so their health is unknown.` : "Based on the last 7 days of activity."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -140,7 +155,11 @@ export default function Dashboard() {
                     {i.provider} <span className="text-muted-foreground font-normal">• {i.companyName}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {i.lastFailureAt ? `Failed ${new Date(i.lastFailureAt).toLocaleString()}` : i.lastSuccessAt ? `OK ${new Date(i.lastSuccessAt).toLocaleString()}` : "No events"}
+                    {i.lastFailureAt && i.status !== "healthy"
+                      ? `Failed ${new Date(i.lastFailureAt).toLocaleString()}${i.lastFailureDetail ? `: ${i.lastFailureDetail}` : ""}`
+                      : i.lastSuccessAt
+                        ? `Worked ${new Date(i.lastSuccessAt).toLocaleString()}`
+                        : "No activity in the last 7 days"}
                   </div>
                 </div>
                 <StatusBadge status={i.status} />
@@ -155,29 +174,20 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Companies requiring attention</CardTitle>
-            <CardDescription>Suspended companies and failing integrations.</CardDescription>
+            <CardTitle className="text-sm">Needs attention</CardTitle>
+            <CardDescription>Failing integrations and jobs, stuck events, and companies that are suspended or overdue. Worst first.</CardDescription>
           </CardHeader>
-          <CardContent>
-            {stats.suspendedCompanies === 0 && failed.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing is flagged.{unmonitored > 0 ? " Integration health is only partly known." : ""}</p>
+          <CardContent className="space-y-2">
+            {attentionError ? (
+              <QueryError error={attentionError} what="the attention list" />
+            ) : attention === undefined ? (
+              <Skeleton className="h-16 w-full" />
+            ) : attention.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing is flagged.</p>
             ) : (
-              <div className="space-y-2 text-sm">
-                {stats.suspendedCompanies > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span>{stats.suspendedCompanies} suspended</span> <StatusBadge status="suspended" />
-                  </div>
-                )}
-                {failed.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span>{failed.length} failing integration{failed.length === 1 ? "" : "s"}</span> <StatusBadge status="error" />
-                  </div>
-                )}
-              </div>
+              attention.slice(0, 8).map((item) => <AttentionRow key={item.id} item={item} />)
             )}
-            <Link to="/companies" className="text-xs text-primary hover:underline inline-block mt-3">
-              Manage companies →
-            </Link>
+            {(attention?.length ?? 0) > 8 && <p className="text-xs text-muted-foreground">and {(attention?.length ?? 0) - 8} more</p>}
           </CardContent>
         </Card>
       </div>

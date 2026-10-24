@@ -63,8 +63,8 @@ export interface ControlStats {
   revenueToday: string;
   revenue30d: { date: string; revenue: number }[];
   activeIntegrations: number;
-  /** null until failures are recorded somewhere: not zero, which would claim everything is fine. */
-  failedIntegrations: number | null;
+  /** Connections whose own recorded events say they are failing or unreliable. */
+  failedIntegrations: number;
 }
 
 export interface ControlActivity {
@@ -84,14 +84,33 @@ export interface ControlActivity {
 
 export interface IntegrationHealth {
   id: string;
-  companyId: string;
+  /** null for platform-level connections such as Fillo's own billing provider. */
+  companyId: string | null;
   companyName: string;
   provider: string; // whatsapp | moniepoint | opay | instagram
   status: "healthy" | "degraded" | "error" | "disconnected" | "unknown";
   connectedAt?: string | null;
   lastSuccessAt?: string | null;
   lastFailureAt?: string | null;
+  lastFailureDetail?: string | null;
   lastWebhookAt?: string | null;
+}
+
+export interface AttentionItem {
+  id: string;
+  severity: "critical" | "warning";
+  kind: "integration" | "rejected_webhooks" | "job" | "outbox" | "company_suspended" | "company_past_due";
+  title: string;
+  detail: string;
+  companyId?: string;
+}
+
+export type JobState = "running" | "failed" | "stale" | "never" | "ok";
+
+export interface JobsOverview {
+  jobs: { job: string; schedule: string; status: JobState; lastRunAt: string | null; lastSuccessAt: string | null; lastError: string | null }[];
+  recentFailures: { id: string; job: string; startedAt: string; error: string | null }[];
+  outbox: { pending: number; stuck: number; oldestAt: string | null; lastError: string | null };
 }
 
 export interface FeatureFlag {
@@ -209,6 +228,22 @@ export function useControlIntegrations() {
   });
 }
 
+export function useControlAttention() {
+  return useQuery({
+    queryKey: ["control", "attention"],
+    queryFn: async () => (await apiRequest<{ data: AttentionItem[] }>("GET", "/control/attention")).data,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useControlJobs() {
+  return useQuery({
+    queryKey: ["control", "jobs"],
+    queryFn: () => apiRequest<JobsOverview>("GET", "/control/jobs"),
+    refetchInterval: 60_000,
+  });
+}
+
 export function useControlFeatureFlags() {
   return useQuery({
     queryKey: ["control", "feature-flags"],
@@ -254,6 +289,14 @@ export function useUnsuspendCompany() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => apiRequest("POST", `/control/companies/${id}/unsuspend`, { reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useRetryOutbox() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ reason }: { reason: string }) => apiRequest<{ retried: number }>("POST", "/control/outbox/retry", { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }

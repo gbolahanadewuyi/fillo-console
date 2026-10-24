@@ -23,6 +23,11 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   pending: { label: "Pending", variant: "warning" },
   failed: { label: "Failed", variant: "destructive" },
   unknown: { label: "Unknown", variant: "muted" },
+  // background jobs
+  ok: { label: "OK", variant: "success" },
+  running: { label: "Running", variant: "default" },
+  stale: { label: "Stopped", variant: "warning" },
+  never: { label: "Never ran", variant: "warning" },
   enabled: { label: "Enabled", variant: "success" },
   disabled: { label: "Disabled", variant: "muted" },
 };
