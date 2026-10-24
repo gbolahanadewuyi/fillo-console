@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api";
 import { mockPlatformUsers, MOCK_PLATFORM_PASSWORD, getPlatformRoleMeta } from "@/lib/mock/users";
@@ -50,19 +51,15 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-[420px] space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <Shield className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <Logo size={64} />
           <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Fillo Console</h1>
-            <p className="text-sm text-muted-foreground">Control plane — sign in with your Fillo account</p>
+            <h1 className="text-2xl font-bold tracking-tight">Console</h1>
           </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Sign in</CardTitle>
-            <CardDescription>Use your @fillo.cloud account. Platform access is audited.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,9 +95,6 @@ export default function Login() {
                 <Link to="/forgot-password" className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
                   Forgot your password?
                 </Link>
-              </p>
-              <p className="text-xs text-center text-muted-foreground">
-                Contact a platform owner if you need access. All sign-ins are logged.
               </p>
             </form>
           </CardContent>

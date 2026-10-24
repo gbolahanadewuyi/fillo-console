@@ -1,4 +1,4 @@
-import { Shield } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -31,17 +31,14 @@ export function AppSidebar({ platformRole }: { platformRole?: PlatformRole }) {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Shield className="h-4 w-4 text-primary-foreground" />
+        {collapsed ? (
+          <Logo size={32} variant="mark" onDark />
+        ) : (
+          <div className="flex items-center gap-2">
+            <Logo size={36} onDark />
+            <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50 font-semibold">Console</span>
           </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight text-sidebar-foreground leading-none">Fillo</span>
-              <span className="text-[10px] uppercase tracking-widest text-sidebar-foreground/50 font-semibold">Console</span>
-            </div>
-          )}
-        </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="scrollbar-thin">
