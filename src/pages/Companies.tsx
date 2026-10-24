@@ -8,21 +8,22 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { TablePagination } from "@/components/TablePagination";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
+import { QueryError } from "@/components/QueryError";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 export default function Companies() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
-  const [debounced, setDebounced] = useState("");
 
   const queryStatus = status === "all" ? "" : status;
-  const { data, isLoading } = useControlCompanies({ page, pageSize: 20, search: debounced, status: queryStatus });
+  const { data, isLoading, error, refetch } = useControlCompanies({ page, pageSize: 20, search: useDebouncedValue(search.trim()), status: queryStatus });
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
-        <p className="text-sm text-muted-foreground">All tenants on the Fillo platform. Lifecycle: Trial → Active → Suspended → Archived.</p>
+        <p className="text-sm text-muted-foreground">Every company on the Fillo platform.</p>
       </div>
 
       <Card>
@@ -39,10 +40,6 @@ export default function Companies() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setDebounced(search);
-                }}
-                onBlur={() => setDebounced(search)}
               />
             </div>
             <Select
@@ -60,13 +57,14 @@ export default function Companies() {
                 <SelectItem value="trial">Trial</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
                 <SelectItem value="past_due">Past due</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent>
+          {error && <QueryError error={error} onRetry={() => void refetch()} what="companies" />}
           <div className="rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
@@ -86,7 +84,7 @@ export default function Companies() {
                       Loading…
                     </TableCell>
                   </TableRow>
-                ) : (data?.data.length ?? 0) === 0 ? (
+                ) : error ? null : (data?.data.length ?? 0) === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No companies found.

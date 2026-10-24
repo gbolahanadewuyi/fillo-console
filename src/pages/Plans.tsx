@@ -1,17 +1,18 @@
 import { useControlPlans } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { QueryError } from "@/components/QueryError";
 
 export default function Plans() {
-  const { data } = useControlPlans();
+  const { data, error, refetch } = useControlPlans();
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Plans & Billing</h1>
-        <p className="text-sm text-muted-foreground">SaaS foundation: plans, price, cycles, limits. Companies show current plan, billing status, renewal, usage. No settlement logic here.</p>
+        <p className="text-sm text-muted-foreground">The plans Fillo offers. They are a reference list for now: companies are not linked to a plan and the limits are not enforced.</p>
       </div>
+      {error && <QueryError error={error} onRetry={() => void refetch()} what="plans" />}
       <div className="grid gap-4 md:grid-cols-3">
         {(data ?? []).map((plan) => (
           <Card key={plan.id}>
@@ -44,38 +45,6 @@ export default function Plans() {
           </Card>
         ))}
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Plan assignment</CardTitle>
-          <CardDescription>Assign via PUT /control/companies/:id/plan (coming soon). Server validates limits vs usage.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plan</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Cycle</TableHead>
-                <TableHead>Limits</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data ?? []).map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{p.code}</TableCell>
-                  <TableCell>₦{Number(p.price).toLocaleString()}</TableCell>
-                  <TableCell className="capitalize">{p.billingCycle}</TableCell>
-                  <TableCell>
-                    {p.stationLimit ?? "∞"} stations • {p.userLimit ?? "∞"} users
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }

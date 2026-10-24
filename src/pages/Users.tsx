@@ -8,20 +8,21 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { TablePagination } from "@/components/TablePagination";
 import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
+import { QueryError } from "@/components/QueryError";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
   const [status, setStatus] = useState("all");
 
-  const { data } = useControlUsers({ page, pageSize: 20, search: debounced, status: status === "all" ? "" : status });
+  const { data, error, refetch } = useControlUsers({ page, pageSize: 20, search: useDebouncedValue(search.trim()), status: status === "all" ? "" : status });
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-        <p className="text-sm text-muted-foreground">Staff across all companies. Platform Support can provision/suspend; impersonation requires explicit auth + audit.</p>
+        <p className="text-sm text-muted-foreground">People across all companies. Read-only for now.</p>
       </div>
       <Card>
         <CardHeader className="pb-3">
@@ -29,7 +30,7 @@ export default function UsersPage() {
           <div className="flex flex-col sm:flex-row gap-3 mt-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search name or email…" className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} onBlur={() => setDebounced(search)} onKeyDown={(e) => e.key === "Enter" && setDebounced(search)} />
+              <Input placeholder="Search name or email…" className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
             </div>
             <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
               <SelectTrigger className="w-[160px]">
@@ -44,6 +45,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {error && <QueryError error={error} onRetry={() => void refetch()} what="users" />}
           <Table>
             <TableHeader>
               <TableRow>
@@ -75,7 +77,7 @@ export default function UsersPage() {
                   <TableCell className="text-sm text-muted-foreground">{new Date(u.createdAt).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
-              {(data?.data?.length ?? 0) === 0 && (
+              {!error && (data?.data?.length ?? 0) === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     No users.

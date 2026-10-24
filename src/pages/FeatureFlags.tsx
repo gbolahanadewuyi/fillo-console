@@ -1,54 +1,36 @@
-import { useControlFeatureFlags, useUpdateFeatureFlag } from "@/hooks/useControlApi";
+import { useControlFeatureFlags } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/QueryError";
 
 export default function FeatureFlags() {
-  const { data, isLoading } = useControlFeatureFlags();
-  const mut = useUpdateFeatureFlag();
-  const { toast } = useToast();
+  const { data, isLoading, error, refetch } = useControlFeatureFlags();
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Feature Flags</h1>
-        <p className="text-sm text-muted-foreground">Platform-level toggles. Enable per platform / company / station. UI must never hard-code availability.</p>
+        <p className="text-sm text-muted-foreground">
+          Per-company overrides are stored, but no part of the apps reads them yet, so changing one has no effect today. Platform-wide defaults aren't supported.
+        </p>
       </div>
-      {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading…</div>
+      {error ? (
+        <QueryError error={error} onRetry={() => void refetch()} what="feature flags" />
+      ) : isLoading ? (
+        <div className="grid gap-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       ) : (
         <div className="grid gap-4">
           {(data ?? []).map((flag) => (
             <Card key={flag.key}>
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      {flag.label} <Badge variant="outline" className="font-mono text-xs">{flag.key}</Badge>
-                    </CardTitle>
-                    {flag.description && <CardDescription className="mt-1">{flag.description}</CardDescription>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={`flag-${flag.key}`} className="text-sm text-muted-foreground">
-                      Default
-                    </Label>
-                    <Switch
-                      id={`flag-${flag.key}`}
-                      checked={flag.enabledDefault}
-                      disabled={mut.isPending}
-                      onCheckedChange={async (v) => {
-                        try {
-                          await mut.mutateAsync({ key: flag.key, enabled: v });
-                          toast({ title: "Updated", description: `${flag.key} default → ${v ? "enabled" : "disabled"}` });
-                        } catch (e) {
-                          toast({ title: "Failed", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  {flag.label} <Badge variant="outline" className="font-mono text-xs">{flag.key}</Badge>
+                </CardTitle>
+                {flag.description && <CardDescription className="mt-1">{flag.description}</CardDescription>}
               </CardHeader>
               {flag.overrides.length > 0 && (
                 <CardContent>
@@ -67,9 +49,9 @@ export default function FeatureFlags() {
               )}
             </Card>
           ))}
+          {(data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No flags defined.</p>}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Server resolves: station &gt; company &gt; platform default. Console must call PUT /control/feature-flags/:key with scopeType/scopeId to override.</p>
     </div>
   );
 }

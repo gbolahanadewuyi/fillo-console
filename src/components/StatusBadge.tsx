@@ -22,6 +22,7 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   // generic
   pending: { label: "Pending", variant: "warning" },
   failed: { label: "Failed", variant: "destructive" },
+  unknown: { label: "Unknown", variant: "muted" },
   enabled: { label: "Enabled", variant: "success" },
   disabled: { label: "Disabled", variant: "muted" },
 };

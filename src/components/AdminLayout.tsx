@@ -2,7 +2,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { MobileNav } from "@/components/MobileNav";
-import { Outlet } from "react-router-dom";
+import { RoleGate } from "@/components/RoleGate";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function AdminLayout() {
@@ -16,7 +16,7 @@ export function AdminLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           <AppHeader />
           <main className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6 bg-background">
-            <Outlet />
+            <RoleGate />
           </main>
         </div>
       </div>

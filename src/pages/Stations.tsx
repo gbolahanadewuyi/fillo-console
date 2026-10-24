@@ -6,17 +6,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/StatusBadge";
 import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
+import { QueryError } from "@/components/QueryError";
 
 export default function Stations() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const { data } = useControlStations({ search: debounced, pageSize: 50 });
+  const { data, error, refetch } = useControlStations({ search: debounced, pageSize: 50 });
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Stations</h1>
-        <p className="text-sm text-muted-foreground">Stations belong to companies. Actions: create, suspend, view activity.</p>
+        <p className="text-sm text-muted-foreground">Every station across all companies. Open a company to see its own.</p>
       </div>
       <Card>
         <CardHeader className="pb-3">
@@ -34,6 +35,7 @@ export default function Stations() {
           </div>
         </CardHeader>
         <CardContent>
+          {error && <QueryError error={error} onRetry={() => void refetch()} what="stations" />}
           <Table>
             <TableHeader>
               <TableRow>
@@ -62,7 +64,7 @@ export default function Stations() {
                   <TableCell>{s.orderCount ?? "—"}</TableCell>
                 </TableRow>
               ))}
-              {(data?.data?.length ?? 0) === 0 && (
+              {!error && (data?.data?.length ?? 0) === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     No stations.

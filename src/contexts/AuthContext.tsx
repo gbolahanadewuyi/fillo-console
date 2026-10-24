@@ -1,10 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from "firebase/auth";
-import { firebaseAuth, primeAuthToken, getFcmToken } from "@/lib/firebase";
+import { firebaseAuth, primeAuthToken } from "@/lib/firebase";
 import { apiRequest, ApiError } from "@/services/api";
 import { isLocalAuth } from "@/lib/auth-mode";
 import * as ownAuth from "@/lib/own-auth";
-import { findMockPlatformUserByEmail, MOCK_PLATFORM_PASSWORD } from "@/lib/mock/users";
 
 export type PlatformRole = "platform_owner" | "platform_admin" | "platform_support" | "platform_finance";
 
@@ -26,43 +25,11 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-let _fcmToken: string | null = null;
-
-async function registerFcm() {
-  try {
-    const token = await getFcmToken();
-    if (!token) return;
-    _fcmToken = token;
-    // best-effort: control plane topic registration (optional, not blocking)
-    await apiRequest("POST", "/control/fcm-topic", { token }).catch(() => {});
-  } catch {
-    // non-critical
-  }
-}
-
-async function unregisterFcm() {
-  const token = _fcmToken;
-  if (!token) return;
-  _fcmToken = null;
-  try {
-    await apiRequest("DELETE", "/control/fcm-topic", { token }).catch(() => {});
-  } catch {
-    // non-critical
-  }
-}
-
-function platformRoleFromEmail(email: string): PlatformRole {
-  const lower = email.toLowerCase();
-  if (lower.startsWith("owner@")) return "platform_owner";
-  if (lower.startsWith("support@")) return "platform_support";
-  if (lower.startsWith("finance@")) return "platform_finance";
-  return "platform_admin";
-}
-
+/** A convenience filter for the sign-in form only. The API is the authority: it resolves the platform role
+ *  from its own allowlist or staff table and refuses everyone else, so this is never what grants access. */
 function isAllowedControlEmail(email: string): boolean {
   const lower = email.toLowerCase();
   return (
-    import.meta.env.DEV ||
     lower.endsWith("@fillo.cloud") ||
     lower.endsWith("@fillo.africa") ||
     lower.endsWith("@fillo.io") ||
@@ -70,35 +37,20 @@ function isAllowedControlEmail(email: string): boolean {
   );
 }
 
-// Dev fallback: when /control/me is not yet deployed, treat @fillo.cloud users as platform_admin
-async function fetchPlatformProfile(): Promise<PlatformUser | null> {
+/** The platform profile comes from the API and nowhere else: if it cannot be loaded there is no session,
+ *  never a role guessed from the email address. */
+async function loadPlatformProfile(): Promise<PlatformUser> {
   try {
-    const profile = await apiRequest<PlatformUser>("GET", "/control/me");
-    return profile;
+    return await apiRequest<PlatformUser>("GET", "/control/me");
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {
-      // control plane not yet available — fall back to dev mode
-      return null;
-    }
-    throw err;
-  }
-}
-
-/** Own-auth sign-in must end with a platform profile: an account that is not a platform member has no
- *  business in the console, so its session is ended rather than left half signed in. */
-async function loadLocalProfile(): Promise<PlatformUser> {
-  try {
-    const profile = await fetchPlatformProfile();
-    if (profile) return profile;
-  } catch (err) {
-    await ownAuth.logout();
     if (err instanceof ApiError && err.status === 403) {
       throw new ApiError(403, "This account does not have access to the console.");
     }
+    if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {
+      throw new ApiError(503, "The control plane is not available right now. Try again shortly.");
+    }
     throw err;
   }
-  await ownAuth.logout();
-  throw new ApiError(503, "The control plane is not available right now. Try again shortly.");
 }
 
 function messageFor(err: unknown): ApiError {
@@ -107,22 +59,9 @@ function messageFor(err: unknown): ApiError {
   return new ApiError(0, "Network error. Check your connection and try again.");
 }
 
-const MOCK_STORAGE_KEY = "fillo_mock_user";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<PlatformUser | null>(() => {
-    if (import.meta.env.DEV && typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem(MOCK_STORAGE_KEY);
-        if (raw) return JSON.parse(raw) as PlatformUser;
-      } catch {
-        // Ignore malformed demo-session data and continue signed out.
-      }
-    }
-    return null;
-  });
+  const [user, setUser] = useState<PlatformUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const registeredRef = useRef(false);
 
   useEffect(() => {
     if (isLocalAuth) {
@@ -131,7 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         try {
           if (await ownAuth.refresh()) {
-            const profile = await loadLocalProfile();
+            let profile: PlatformUser;
+            try {
+              profile = await loadPlatformProfile();
+            } catch (err) {
+              // A session that cannot become a platform profile is ended, not left half signed in.
+              await ownAuth.logout();
+              throw err;
+            }
             if (!cancelled) setUser(profile);
           } else if (!cancelled) {
             setUser(null);
@@ -150,56 +96,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const unsub = firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
-      if (firebaseUser) {
-        const email = firebaseUser.email?.toLowerCase() ?? "";
-        if (!isAllowedControlEmail(email)) {
-          try {
-            await firebaseSignOut(firebaseAuth);
-          } catch {
-            // Sign-out is best-effort; the local session is cleared below.
-          }
-          setUser(null);
-        } else {
-          try {
-            const token = await firebaseUser.getIdToken();
-            primeAuthToken(token);
-            const platformProfile = await fetchPlatformProfile();
-            if (platformProfile) {
-              setUser(platformProfile);
-            } else {
-              // dev fallback: synthesize profile from firebase user
-              setUser({
-                uid: firebaseUser.uid,
-                email: firebaseUser.email ?? "",
-                displayName: firebaseUser.displayName ?? firebaseUser.email?.split("@")[0] ?? "Admin",
-                platformRole: platformRoleFromEmail(email),
-              });
-            }
-            if (!registeredRef.current) {
-              registeredRef.current = true;
-              registerFcm();
-            }
-          } catch {
-            setUser(null);
-          }
+      if (!firebaseUser) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      const email = firebaseUser.email?.toLowerCase() ?? "";
+      if (!isAllowedControlEmail(email)) {
+        try {
+          await firebaseSignOut(firebaseAuth);
+        } catch {
+          // Sign-out is best-effort; the local session is cleared below.
         }
-      } else {
-        // Check mock fallback persistence (offline demo)
-        if (import.meta.env.DEV && typeof window !== "undefined") {
-          try {
-            const raw = localStorage.getItem(MOCK_STORAGE_KEY);
-            if (raw) {
-              const mock = JSON.parse(raw) as PlatformUser;
-              // no real token — control hooks fall back to mock data via safeRequest
-              primeAuthToken("");
-              setUser(mock);
-              setLoading(false);
-              return;
-            }
-          } catch {
-            // Ignore malformed demo-session data and continue signed out.
-          }
-        }
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        primeAuthToken(await firebaseUser.getIdToken());
+        setUser(await loadPlatformProfile());
+      } catch {
         setUser(null);
       }
       setLoading(false);
@@ -217,67 +133,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         throw messageFor(err);
       }
-      setUser(await loadLocalProfile());
+      try {
+        setUser(await loadPlatformProfile());
+      } catch (err) {
+        await ownAuth.logout();
+        throw err;
+      }
       return;
     }
     try {
       const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      const token = await cred.user.getIdToken();
-      primeAuthToken(token);
-      const platformProfile = await fetchPlatformProfile();
-      if (platformProfile) {
-        setUser(platformProfile);
-      } else {
-        setUser({
-          uid: cred.user.uid,
-          email: cred.user.email ?? email,
-          displayName: cred.user.displayName ?? email.split("@")[0],
-          platformRole: platformRoleFromEmail(lower),
-        });
-      }
-      registeredRef.current = true;
-      registerFcm();
+      primeAuthToken(await cred.user.getIdToken());
+      setUser(await loadPlatformProfile());
     } catch (err) {
-      // ── Mock fallback for DEMO without emulator ───────────────────────────
-      // If emulator is not running (network failures) or the Firebase user
-      // hasn't been seeded yet (user-not-found/invalid-credential), but the
-      // email belongs to a mockPlatformUser and the password is correct, treat
-      // it as a successful mock login in DEV. This mirrors EOP's seeded demo
-      // experience and lets the console be demoed offline (all control hooks
-      // already fall back to mock data via safeRequest).
-      if (import.meta.env.DEV) {
-        const mock = findMockPlatformUserByEmail(lower);
-        if (mock && password === MOCK_PLATFORM_PASSWORD) {
-          const code = err instanceof Error && "code" in err ? (err as { code: string }).code : "";
-          const isAuthMissing =
-            err instanceof ApiError
-              ? err.status === 0
-              : typeof code === "string" &&
-                (code.includes("network") ||
-                  code === "auth/user-not-found" ||
-                  code === "auth/wrong-password" ||
-                  code === "auth/invalid-credential" ||
-                  code === "auth/invalid-email");
-          if (isAuthMissing) {
-            const mockUser: PlatformUser = {
-              uid: mock.id,
-              email: mock.email,
-              displayName: mock.name,
-              platformRole: mock.platformRole,
-            };
-            try {
-              localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockUser));
-            } catch {
-              // Demo persistence is best-effort and may be blocked by the browser.
-            }
-            primeAuthToken("");
-            setUser(mockUser);
-            registeredRef.current = true;
-            // no FCM in mock mode
-            return;
-          }
-        }
-      }
       if (err instanceof ApiError) throw err;
       if (err instanceof Error && "code" in err && typeof (err as { code: string }).code === "string") {
         const code = (err as { code: string }).code;
@@ -295,13 +163,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await ownAuth.logout();
       setUser(null);
       return;
-    }
-    await unregisterFcm();
-    registeredRef.current = false;
-    try {
-      localStorage.removeItem(MOCK_STORAGE_KEY);
-    } catch {
-      // Local storage may be unavailable; Firebase sign-out must still proceed.
     }
     primeAuthToken("");
     await firebaseSignOut(firebaseAuth);

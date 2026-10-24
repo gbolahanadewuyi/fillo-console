@@ -22,8 +22,6 @@ const Activity = lazy(() => import("@/pages/Activity"));
 const AuditLogs = lazy(() => import("@/pages/AuditLogs"));
 const Support = lazy(() => import("@/pages/Support"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const Notifications = lazy(() => import("@/pages/Notifications"));
-import { OperationsPlaceholder } from "@/pages/OperationsPlaceholder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,14 +60,7 @@ export default function App() {
                     <Route path="/companies/:id" element={<CompanyDetail />} />
                     <Route path="/stations" element={<Stations />} />
                     <Route path="/users" element={<UsersPage />} />
-                    <Route path="/orders" element={<OperationsPlaceholder title="Orders" description="Cross-tenant orders. Support search by order number, phone, or reference." />} />
-                    <Route path="/payments" element={<OperationsPlaceholder title="Payments" description="Cross-tenant payments and POS transaction reconciliation." />} />
-                    <Route path="/deliveries" element={<OperationsPlaceholder title="Deliveries" description="Outstanding deliveries, rider activity, top areas." />} />
-                    <Route path="/inventory" element={<OperationsPlaceholder title="Inventory" description="Stock levels per station, low-stock alerts, movements." />} />
-                    <Route path="/procurement" element={<OperationsPlaceholder title="Procurement" description="Purchase orders, supplier spend, pending receipts." />} />
-                    <Route path="/expenses" element={<OperationsPlaceholder title="Expenses" description="Expenses by category, approval queue, incurred dates." />} />
                     <Route path="/integrations" element={<Integrations />} />
-                    <Route path="/notifications" element={<Notifications />} />
                     <Route path="/feature-flags" element={<FeatureFlags />} />
                     <Route path="/plans" element={<Plans />} />
                     <Route path="/settings" element={<Settings />} />

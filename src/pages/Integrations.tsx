@@ -3,23 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatusBadge } from "@/components/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from "react-router-dom";
+import { QueryError } from "@/components/QueryError";
 
 export default function Integrations() {
-  const { data, isLoading } = useControlIntegrations();
+  const { data, isLoading, error, refetch } = useControlIntegrations();
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-        <p className="text-sm text-muted-foreground">Provider connections per company. Credentials never exposed. Health = last success/failure + webhook recency.</p>
+        <p className="text-sm text-muted-foreground">Provider connections per company. Credentials are never shown.</p>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Integration health</CardTitle>
-          <CardDescription>WhatsApp (Meta), Moniepoint, OPay, Instagram. Filter by company.</CardDescription>
+          <CardDescription>WhatsApp shows "Unknown" until delivery tracking exists. A POS connection is "Healthy" once it has received a webhook.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {error ? (
+            <QueryError error={error} onRetry={() => void refetch()} what="integrations" />
+          ) : isLoading ? (
             <div className="text-sm text-muted-foreground">Loading…</div>
           ) : (
             <Table>
@@ -60,7 +63,7 @@ export default function Integrations() {
               </TableBody>
             </Table>
           )}
-          <p className="text-xs text-muted-foreground mt-3">Secrets (accessToken/webhookSecret/apiKey) are masked server-side — never returned to the console.</p>
+
         </CardContent>
       </Card>
     </div>

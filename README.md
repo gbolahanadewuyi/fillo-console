@@ -1,127 +1,77 @@
 # Fillo Console — Control Plane
 
-Internal operator console for the Fillo platform (the “Overwatch” equivalent for EOP). Manages companies, stations, users, billing, integrations, feature flags, and platform health.
+The internal console for Fillo staff: see every company on the platform, investigate what happened, and make a small number of audited changes. It is **not** the customer app (`EOP`, `app.fillo.cloud`), where a company runs its own business.
 
-**This is not the tenant app.** Tenant operations live in `EOP` (`app.fillo.cloud`). Console is the control plane above tenants:
+Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-routes.ts`).
 
-```
-Fillo Platform
-  → Company
-    → Station
-      → Users
-        → Operational Data
-```
+## Principles
+
+- **Real data only.** Pages show what the API returns, or an error saying it could not be loaded. There is no mock data and no fallback: staff act on what they see.
+- **The API is the authority.** The role comes from `GET /control/me`, which the API resolves from its own staff table or allowlist. It is never guessed from an email address. `src/lib/permissions.ts` mirrors the API's rules so the console doesn't offer what will be refused; it never replaces the server check.
+- **Every change says why.** Suspend, reactivate and feature-flag changes go through `ConfirmWithReason` (a reason of at least 5 characters). The API requires it and keeps it in the audit trail.
+- **No direct data edits.** The console never edits orders, payments, stock or passwords.
+
+## Pages
+
+| Page | What it does | Roles |
+|---|---|---|
+| Dashboard | Platform counts, payments recorded (14 days), recent activity, integration health | all |
+| Companies / Company | List, search, status filter; one company's stations, users, activity, branding; suspend and reactivate | all read; suspend, reactivate, branding: admin, owner |
+| Stations, Users | Cross-company lists with search | all |
+| Integrations | WhatsApp and POS connections per company. WhatsApp health is *unknown* until delivery tracking exists | all |
+| Feature Flags | Catalogue and per-company overrides (read-only here; no part of the apps reads them yet) | owner, admin, support |
+| Plans & Billing | Reference list of plans (not linked to companies yet) | owner, admin, finance |
+| Activity, Audit Logs | The activity ledger with search and an "action starts with" filter | all |
+| Search | Companies, people and orders by number | all |
+| System Settings | How this console is connected | owner, admin |
+
+Role rules live in `src/lib/permissions.ts` (pages and actions) and are enforced by `RoleGate` (page access) and `can()` (buttons). The API enforces its own copy.
 
 ## Stack
 
-- Vite 5 + React 18 + TypeScript
-- react-router-dom 6 + TanStack Query 5
-- shadcn/ui + Radix + Tailwind CSS 3
-- Firebase Auth (same project `energyops-504210` as EOP)
+Vite 5, React 18, TypeScript, react-router 6, TanStack Query 5, shadcn/ui + Radix, Tailwind 3.
 
-Reuses the Overwatch layout pattern from `kasland-admin-hub` (SidebarProvider, dark sidebar, `apiRequest` with token cache, 15s timeout).
-
-## Getting started
+## Running it
 
 ```bash
 npm install
-cp .env.example .env   # fill VITE_API_URL + VITE_FIREBASE_*
-npm run dev            # http://localhost:8082
+cp .env.example .env     # set VITE_API_URL and the sign-in settings
+npm run dev              # http://localhost:8082
+npm run verify           # lint + tests + production build (the pre-push hook runs it)
 ```
 
-Required env:
+`VITE_*` values are baked in at build time, so each environment is built separately.
 
-- `VITE_API_URL` — backend base (no trailing slash), e.g. `https://us-east1-energyops-504210.cloudfunctions.net/api` or local `http://127.0.0.1:5001/energyops-504210/us-east1/api`
-- `VITE_FIREBASE_*` — from Firebase Console > Project Settings (same project as EOP)
+| Setting | Meaning |
+|---|---|
+| `VITE_API_URL` | API base including `/v1`, e.g. `https://api.fillo.cloud/v1` |
+| `VITE_AUTH_PROVIDER=local` | Sign in with Fillo accounts (what staging and production use). Unset = Firebase Auth, used with the local emulator |
+| `VITE_SHOW_DEMO_ACCOUNTS=true` | Show the demo-account picker on the login page (always shown in `npm run dev`) |
 
-Platform auth: only `@fillo.cloud` / `@fillo.africa` / `@fillo-demo.local` emails, plus allowlist `PLATFORM_ADMIN_EMAILS` server-side. In dev, any signed-in user is treated as `platform_admin` (see `src/contexts/AuthContext.tsx`).
-
-## Demo accounts — per platform role (mirrors EOP's tenant demos)
-
-Like the tenant app's `owner@eop-demo.local` etc., the console ships with **one seeded account per platform role** (all password `demo1234`):
-
-| Role | Email | Name | Capabilities |
-|------|-------|------|--------------|
-| Platform Owner | `owner@fillo.cloud` | Fillo Owner | Full — all companies, billing, flags, destructive ops |
-| Platform Admin | `admin@fillo.cloud` | Fillo Admin | Platform management + support |
-| Platform Support | `support@fillo.cloud` | Fillo Support | Read-heavy — companies/users/integrations/activity |
-| Platform Finance | `finance@fillo.cloud` | Fillo Finance | Plans, subscriptions, billing & financials |
-
-The Login page mirrors `EOP/src/app/login/page.tsx:111-127`: a “Seeded demo accounts” card with one tap to fill `email` + `password` (`MOCK_PLATFORM_PASSWORD` in `src/lib/mock/users.ts:30-50`). Uids are deterministic (`user-platform-owner` etc.) so a Firebase ID token's `uid` matches the Postgres `User.id` seeded in `EOP-API/functions/prisma/seed.ts:160-214` — same coupling `EOP/scripts/seed-emulator-auth.ts:8-14` uses for tenant demos.
-
-**Seeding:**
-
-```bash
-# Terminal 1 — start emulators (auth + local API)
-cd EOP-API && npm run emulators            # auth:9099, import/export emulator-data
-# or: cd fillo-console && npm run emulators # auth:9099 via fillo-console/firebase.json
-
-# Terminal 2 — seed Firebase Auth emulator users (both tenant + platform)
-cd EOP-API/functions && npm run seed:auth            # 5 tenant + 4 platform @fillo.cloud
-cd fillo-console && npm run seed:emulator            # 4 platform (idempotent, safe to re-run either)
-
-# Seed Postgres (platform company + users, plus Seegas fixtures)
-cd EOP-API/functions && npm run seed
-```
-
-Toggle between accounts via the Login demo card — header shows `platformRole` badge (Owner/Admin/Support/Finance) and sidebar filters Platform/Plans sections per role (`src/components/AppSidebar.tsx:40-60`).
+Only `@fillo.cloud`, `@fillo.africa`, `@fillo.io` and `@fillo-demo.local` addresses can start sign-in here, as a convenience filter. Access is decided by the API.
 
 ## Structure
 
 ```
 src/
-  contexts/AuthContext.tsx  platform auth (Firebase + GET /control/me)
-  services/api.ts           VITE_API_URL + Bearer token + 15s timeout + ApiError
-  hooks/useControlApi.ts    one hook per domain, mock fallback until /control is live
+  contexts/AuthContext.tsx   sign-in; the profile and role come from GET /control/me
+  services/api.ts            API client: bearer token, one silent refresh on 401, timeout, ApiError
+  hooks/useControlApi.ts     one hook per resource; calls the API and nothing else
+  lib/permissions.ts         who may open which page and do which action (mirrors the API)
+  lib/nav.ts                 the one navigation list (sidebar and mobile menu)
   components/
-    AdminLayout.tsx / AppSidebar.tsx / AppHeader.tsx / MobileNav.tsx
-    StatusBadge.tsx / TablePagination.tsx / ui/*
-  pages/
-    Dashboard.tsx           KPIs, 14-day revenue chart, activity, health
-    Companies.tsx           cross-tenant list, status filter, search
-    CompanyDetail.tsx       tabs: Overview / Stations / Users / Subscription / Branding / Activity
-    Stations.tsx / Users.tsx
-    Integrations.tsx        WhatsApp / Moniepoint / OPay health (masked secrets)
-    FeatureFlags.tsx        platform/company/station matrix
-    Plans.tsx               plan catalogue (Starter/Growth/Scale)
-    Activity.tsx / AuditLogs.tsx
-    Support.tsx             global search (company/user/order/phone)
-    Settings.tsx / Notifications.tsx
+    ConfirmWithReason.tsx    every sensitive change: describe it, require a reason, close only on success
+    QueryError.tsx           what a failed request looks like, with Retry
+    ActivityLedger.tsx       filterable ledger used by Activity and Audit Logs
+    RoleGate.tsx             refuses a page the role does not include
+    StatusBadge.tsx / TablePagination.tsx / AppSidebar.tsx / MobileNav.tsx / ui/*
+  pages/                     one file per page above
 ```
 
-## API — privileged `/v1/control/*`
+## Deployment
 
-All routes behind `verifyFirebaseToken` + `requirePlatformRole` (`EOP-API/functions/src/middleware/require-platform.ts`). Cross-tenant queries intentionally omit `where.companyId = viewer.companyId`. Every destructive mutation writes `ActivityLog` + `OutboxEvent`.
+Built and deployed on Coolify like the other Fillo apps; see `EOP-API/docs/INFRASTRUCTURE.md` and `docs/RELEASING.md`. `develop` redeploys staging (`console-staging.fillo.cloud`); production deploys are manual from `master`.
 
-Example: `GET /control/companies?page=1&pageSize=20&search=&status=` → `Paginated<ControlCompany>`.
+## What is not here yet
 
-Implemented in `EOP-API`:
-
-- `src/routes/control-routes.ts`
-- `src/services/control-service.ts`
-- `src/controllers/control-controller.ts`
-- `src/middleware/require-platform.ts` (env allowlist: `PLATFORM_ADMIN_EMAILS`, `PLATFORM_OWNER_EMAILS`)
-- `src/validators/control-validators.ts`
-
-Feature flags are code-catalogue v1 with `CompanySetting` overrides (`feature.<key>`). Plans are code-catalogue v1.
-
-## Deployment — GCP App Engine
-
-- `app.yaml` → `service: console` (Node 22, `node server.js`)
-- `server.js` — SPA static server, immutable cache for `/assets/*`
-- Routes: `console.fillo.cloud → console` via `dispatch.yaml` (add to `EOP/dispatch.yaml` or deploy via `fillo-dispatch-rules/dispatch.yaml` with `gcloud app deploy dispatch.yaml`)
-- CORS: `ALLOWED_ORIGINS` must include `https://console.fillo.cloud` + `http://localhost:8082`
-
-```bash
-npm run build
-gcloud app deploy app.yaml --project energyops-504210
-# after EOP-API deploy, re-apply Cloud SQL mount:
-gcloud run services update api --region us-east1 --add-cloudsql-instances=energyops-504210:us-east1:energyops-504210-instance --project energyops-504210
-```
-
-## Security notes
-
-- Secrets (`WhatsappNumber.accessToken`, `PosProviderConnection.webhookSecret`) are masked server-side — console never renders them.
-- No impersonation in v1. If added later, require explicit grant + full audit.
-- Every platform mutation is audited (`actorId`, `action`, `resourceType/Id/Label`, `companyId`, timestamp).
-- Rate limited, confirmation dialogs for suspend/flag changes, no bulk edit.
+Recorded in the backlog (GitHub issues in `gbolahanadewuyi/fillo`, console audit): investigation pages for orders, payments and stock; recording of webhook and job failures so integration health can be real; access diagnosis and safe user actions (unlock, send reset email, resend invite); support case notes; staff management and two-factor sign-in.
