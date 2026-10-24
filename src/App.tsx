@@ -15,6 +15,7 @@ const Companies = lazy(() => import("@/pages/Companies"));
 const CompanyDetail = lazy(() => import("@/pages/CompanyDetail"));
 const Stations = lazy(() => import("@/pages/Stations"));
 const UsersPage = lazy(() => import("@/pages/Users"));
+const UserAccess = lazy(() => import("@/pages/UserAccess"));
 const Integrations = lazy(() => import("@/pages/Integrations"));
 const FeatureFlags = lazy(() => import("@/pages/FeatureFlags"));
 const Plans = lazy(() => import("@/pages/Plans"));
@@ -60,6 +61,7 @@ export default function App() {
                     <Route path="/companies/:id" element={<CompanyDetail />} />
                     <Route path="/stations" element={<Stations />} />
                     <Route path="/users" element={<UsersPage />} />
+                    <Route path="/users/:id" element={<UserAccess />} />
                     <Route path="/integrations" element={<Integrations />} />
                     <Route path="/feature-flags" element={<FeatureFlags />} />
                     <Route path="/plans" element={<Plans />} />

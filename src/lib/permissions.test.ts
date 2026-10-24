@@ -13,6 +13,10 @@ describe("can (mirrors the API role matrix)", () => {
   it("only admin and owner may retry stuck notification events", () => {
     expect(roles.filter((r) => can(r, "outbox.retry"))).toEqual(["platform_owner", "platform_admin"]);
   });
+  it("support may assist a person (unlock, reset, invitations) but only admin and owner may suspend one", () => {
+    expect(roles.filter((r) => can(r, "user.assist"))).toEqual(["platform_owner", "platform_admin", "platform_support"]);
+    expect(roles.filter((r) => can(r, "user.suspend"))).toEqual(["platform_owner", "platform_admin"]);
+  });
   it("only the owner may change feature flags", () => {
     expect(roles.filter((r) => can(r, "flag.update"))).toEqual(["platform_owner"]);
   });

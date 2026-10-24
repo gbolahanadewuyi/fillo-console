@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { TablePagination } from "@/components/TablePagination";
 import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InvitesPanel } from "@/components/InvitesPanel";
 import { QueryError } from "@/components/QueryError";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -22,8 +24,21 @@ export default function UsersPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-        <p className="text-sm text-muted-foreground">People across all companies. Read-only for now.</p>
+        <p className="text-sm text-muted-foreground">People and invitations across all companies. Open a person to see why they can or cannot sign in.</p>
       </div>
+      <Tabs defaultValue="people" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="people">People</TabsTrigger>
+          <TabsTrigger value="invitations">Invitations</TabsTrigger>
+        </TabsList>
+        <TabsContent value="invitations">
+          <Card>
+            <CardContent className="pt-6">
+              <InvitesPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="people">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">All users</CardTitle>
@@ -61,7 +76,7 @@ export default function UsersPage() {
               {(data?.data ?? []).map((u) => (
                 <TableRow key={u.id}>
                   <TableCell>
-                    <div className="font-medium">{u.name}</div>
+                    <Link to={`/users/${u.id}`} className="font-medium hover:underline">{u.name}</Link>
                     <div className="text-xs text-muted-foreground">{u.email}</div>
                   </TableCell>
                   <TableCell>
@@ -89,6 +104,8 @@ export default function UsersPage() {
           {data && <TablePagination page={data.page} pageSize={data.pageSize} total={data.total} totalPages={data.totalPages} onPageChange={setPage} />}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

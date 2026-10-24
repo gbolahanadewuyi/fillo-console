@@ -9,7 +9,8 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 - **Real data only.** Pages show what the API returns, or an error saying it could not be loaded. There is no mock data and no fallback: staff act on what they see.
 - **The API is the authority.** The role comes from `GET /control/me`, which the API resolves from its own staff table or allowlist. It is never guessed from an email address. `src/lib/permissions.ts` mirrors the API's rules so the console doesn't offer what will be refused; it never replaces the server check.
 - **Every change says why.** Suspend, reactivate and feature-flag changes go through `ConfirmWithReason` (a reason of at least 5 characters). The API requires it and keeps it in the audit trail.
-- **No direct data edits.** The console never edits orders, payments, stock or passwords.
+- **No direct data edits.** The console never edits orders, payments, stock or passwords. It can email a person a reset link; they choose their own password.
+- **Staff accounts and company owners are out of reach** of the person actions (the API refuses them).
 
 ## Pages
 
@@ -17,7 +18,8 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 |---|---|---|
 | Dashboard | Platform counts, payments recorded (14 days), recent activity, integration health | all |
 | Companies / Company | List, search, status filter; one company's stations, users, activity, branding; suspend and reactivate | all read; suspend, reactivate, branding: admin, owner |
-| Stations, Users | Cross-company lists with search | all |
+| Stations, Users | Cross-company lists with search. Users has People and Invitations tabs | all read; resend/revoke invitations: support, admin, owner |
+| User | Why one person can or cannot sign in (suspended company, locked subscription, locked login, no station, no login) and the fix: unlock, send reset email, reactivate, resend/revoke invitation, suspend | all read; support, admin, owner act; suspend: admin, owner |
 | Integrations | WhatsApp and POS connections per company. WhatsApp health is *unknown* until delivery tracking exists | all |
 | Feature Flags | Catalogue and per-company overrides (read-only here; no part of the apps reads them yet) | owner, admin, support |
 | Plans & Billing | Reference list of plans (not linked to companies yet) | owner, admin, finance |
@@ -74,4 +76,4 @@ Built and deployed on Coolify like the other Fillo apps; see `EOP-API/docs/INFRA
 
 ## What is not here yet
 
-Recorded in the backlog (GitHub issues in `gbolahanadewuyi/fillo`, console audit): investigation pages for orders, payments and stock; recording of webhook and job failures so integration health can be real; access diagnosis and safe user actions (unlock, send reset email, resend invite); support case notes; staff management and two-factor sign-in.
+Recorded in the backlog (GitHub issues in `gbolahanadewuyi/fillo`, console audit): investigation pages for orders, payments and stock; recording of webhook and job failures so integration health can be real; support case notes; staff management and two-factor sign-in.

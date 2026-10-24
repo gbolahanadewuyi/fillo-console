@@ -21,6 +21,9 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   degraded: { label: "Degraded", variant: "warning" },
   // generic
   pending: { label: "Pending", variant: "warning" },
+  expired: { label: "Expired", variant: "destructive" },
+  accepted: { label: "Accepted", variant: "success" },
+  revoked: { label: "Revoked", variant: "muted" },
   failed: { label: "Failed", variant: "destructive" },
   unknown: { label: "Unknown", variant: "muted" },
   // background jobs

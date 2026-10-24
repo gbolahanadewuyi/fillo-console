@@ -8,9 +8,19 @@
  */
 import type { PlatformRole } from "@/contexts/AuthContext";
 
-export type Action = "company.suspend" | "company.unsuspend" | "company.branding" | "flag.update" | "outbox.retry";
+export type Action =
+  | "company.suspend"
+  | "company.unsuspend"
+  | "company.branding"
+  | "flag.update"
+  | "outbox.retry"
+  | "user.assist"
+  | "user.suspend";
 
 const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
+
+/** Unlocking, reset emails, reactivating a person and invitations: the everyday support work. */
+const SUPPORT: PlatformRole[] = ["platform_owner", "platform_admin", "platform_support"];
 
 const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "company.suspend": ADMIN,
@@ -18,6 +28,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "company.branding": ADMIN,
   "flag.update": ["platform_owner"],
   "outbox.retry": ADMIN,
+  "user.assist": SUPPORT,
+  "user.suspend": ADMIN,
 };
 
 export function can(role: PlatformRole | undefined, action: Action): boolean {

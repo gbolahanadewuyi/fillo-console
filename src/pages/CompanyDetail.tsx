@@ -244,7 +244,7 @@ export default function CompanyDetail() {
                 <TableBody>
                   {(users?.data ?? []).map((u) => (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.name}</TableCell>
+                      <TableCell className="font-medium"><Link to={`/users/${u.id}`} className="hover:underline">{u.name}</Link></TableCell>
                       <TableCell className="text-sm">{u.email}</TableCell>
                       <TableCell>{u.roleName}</TableCell>
                       <TableCell>

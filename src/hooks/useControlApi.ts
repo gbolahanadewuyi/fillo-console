@@ -293,6 +293,71 @@ export function useUnsuspendCompany() {
   });
 }
 
+export interface AccessFinding {
+  code: string;
+  severity: "blocking" | "warning" | "info";
+  title: string;
+  detail: string;
+  /** The support action that resolves it, when there is one. */
+  action?: "user.unlock" | "user.sendReset" | "user.reactivate" | "invite.resend";
+}
+
+export interface UserAccess {
+  user: { id: string; name: string; email: string; phone: string | null; status: "active" | "suspended"; isOwner: boolean; roleName: string; stationName: string | null; companyId: string; companyName: string; createdAt: string };
+  signIn: { hasLogin: boolean; lastLoginAt: string | null; passwordUpdatedAt: string | null; failedAttempts: number; lockedUntil: string | null };
+  invite: { id: string; status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED"; expiresAt: string; createdAt: string } | null;
+  canSignIn: boolean;
+  findings: AccessFinding[];
+  recentActivity: { id: string; action: string; label: string | null; createdAt: string }[];
+}
+
+export interface ControlInvite {
+  id: string;
+  email: string;
+  companyId: string;
+  companyName: string;
+  roleName: string;
+  stationName: string | null;
+  status: "pending" | "expired" | "accepted" | "revoked";
+  expiresAt: string;
+  createdAt: string;
+}
+
+export function useUserAccess(id: string | undefined) {
+  return useQuery({
+    queryKey: ["control", "user-access", id],
+    queryFn: () => apiRequest<UserAccess>("GET", `/control/users/${id}/access`),
+    enabled: !!id,
+  });
+}
+
+export type UserActionName = "unlock" | "send-reset" | "reactivate" | "suspend";
+
+export function useUserAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, reason }: { id: string; action: UserActionName; reason: string }) => apiRequest<{ ok: true }>("POST", `/control/users/${id}/${action}`, { reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useControlInvites(params: { page?: number; pageSize?: number; status?: string; companyId?: string; search?: string } = {}) {
+  const { page = 1, pageSize = 20, status = "", companyId = "", search = "" } = params;
+  return useQuery({
+    queryKey: ["control", "invites", page, pageSize, status, companyId, search],
+    queryFn: () => apiRequest<Paginated<ControlInvite>>("GET", `/control/invites?${listParams({ page, pageSize, status, companyId, search })}`),
+  });
+}
+
+export function useInviteAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, reason }: { id: string; action: "resend" | "revoke"; reason: string }) =>
+      apiRequest<{ ok: true; emailSent?: boolean }>("POST", `/control/invites/${id}/${action}`, { reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
 export function useRetryOutbox() {
   const qc = useQueryClient();
   return useMutation({
