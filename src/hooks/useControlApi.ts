@@ -101,7 +101,7 @@ export interface IntegrationHealth {
 export interface AttentionItem {
   id: string;
   severity: "critical" | "warning";
-  kind: "integration" | "rejected_webhooks" | "job" | "outbox" | "company_suspended" | "company_past_due";
+  kind: "integration" | "rejected_webhooks" | "job" | "outbox" | "company_suspended" | "company_past_due" | "whatsapp_request";
   title: string;
   detail: string;
   companyId?: string;
@@ -544,6 +544,50 @@ export function useCaseAction() {
       qc.setQueryData(["control", "case", data.id], data);
       void qc.invalidateQueries({ queryKey: ["control", "cases"] });
     },
+  });
+}
+
+export type WhatsappStatus = "REQUESTED" | "NUMBER_ASSIGNED" | "PENDING_APPROVAL" | "LIVE" | "PAUSED";
+
+export interface ControlWhatsappNumber {
+  id: string;
+  companyId: string;
+  companyName: string;
+  status: WhatsappStatus;
+  /** Meta's id for the number (digits); empty until Fillo has assigned one. */
+  phoneNumberId: string | null;
+  /** The number customers dial. */
+  displayPhoneNumber: string | null;
+  requestedDisplayName: string | null;
+  requestedContact: string | null;
+  requestedAt: string | null;
+  liveAt: string | null;
+  /** What the company is told. */
+  statusNote: string | null;
+  ownToken: boolean;
+  updatedAt: string;
+}
+
+export function useControlWhatsapp(params: { page?: number; pageSize?: number; status?: string } = {}) {
+  const { page = 1, pageSize = 20, status = "" } = params;
+  return useQuery({
+    queryKey: ["control", "whatsapp", page, pageSize, status],
+    queryFn: () => apiRequest<Paginated<ControlWhatsappNumber>>("GET", `/control/whatsapp-numbers?${listParams({ page, pageSize, status })}`),
+  });
+}
+
+export interface WhatsappPatch {
+  status?: Exclude<WhatsappStatus, "REQUESTED">;
+  phoneNumberId?: string;
+  displayPhoneNumber?: string;
+  note?: string | null;
+}
+
+export function useUpdateWhatsapp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: WhatsappPatch }) => apiRequest<ControlWhatsappNumber>("PATCH", `/control/whatsapp-numbers/${id}`, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
 

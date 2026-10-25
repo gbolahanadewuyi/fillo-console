@@ -31,6 +31,12 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   reversed: { label: "Reversed", variant: "destructive" },
   open: { label: "Open", variant: "warning" },
   resolved: { label: "Resolved", variant: "success" },
+  // WhatsApp number setup
+  requested: { label: "Requested", variant: "warning" },
+  number_assigned: { label: "Number assigned", variant: "warning" },
+  pending_approval: { label: "Awaiting WhatsApp", variant: "warning" },
+  live: { label: "Live", variant: "success" },
+  paused: { label: "Paused", variant: "destructive" },
   // generic
   pending: { label: "Pending", variant: "warning" },
   expired: { label: "Expired", variant: "destructive" },

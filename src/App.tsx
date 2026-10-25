@@ -23,6 +23,7 @@ const Stock = lazy(() => import("@/pages/Stock"));
 const Cases = lazy(() => import("@/pages/Cases"));
 const CaseDetail = lazy(() => import("@/pages/CaseDetail"));
 const Platform = lazy(() => import("@/pages/Platform"));
+const WhatsApp = lazy(() => import("@/pages/WhatsApp"));
 const Integrations = lazy(() => import("@/pages/Integrations"));
 const FeatureFlags = lazy(() => import("@/pages/FeatureFlags"));
 const Plans = lazy(() => import("@/pages/Plans"));
@@ -75,6 +76,7 @@ export default function App() {
                     <Route path="/stock" element={<Stock />} />
                     <Route path="/cases" element={<Cases />} />
                     <Route path="/cases/:id" element={<CaseDetail />} />
+                    <Route path="/whatsapp" element={<WhatsApp />} />
                     <Route path="/platform" element={<Platform />} />
                     <Route path="/integrations" element={<Integrations />} />
                     <Route path="/feature-flags" element={<FeatureFlags />} />

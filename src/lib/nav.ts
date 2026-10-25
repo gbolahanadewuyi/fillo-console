@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Store, Plug, HeartPulse, Flag, FileText, Activity, ScrollText, Search, Settings, ShoppingCart, CreditCard, Boxes, LifeBuoy, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Users, Store, Plug, HeartPulse, MessageCircle, Flag, FileText, Activity, ScrollText, Search, Settings, ShoppingCart, CreditCard, Boxes, LifeBuoy, type LucideIcon } from "lucide-react";
 import { PAGE_PATHS, type PageKey } from "@/lib/permissions";
 
 export interface NavItem {
@@ -18,7 +18,7 @@ const item = (page: PageKey, title: string, icon: LucideIcon): NavItem => ({ pag
 /** One navigation for the sidebar and the mobile menu. Pages that do not exist yet are not listed. */
 export const NAV: NavGroup[] = [
   { label: "Overview", items: [item("dashboard", "Dashboard", LayoutDashboard)] },
-  { label: "Customers", items: [item("companies", "Companies", Building2), item("stations", "Stations", Store), item("users", "Users", Users)] },
+  { label: "Customers", items: [item("companies", "Companies", Building2), item("stations", "Stations", Store), item("users", "Users", Users), item("whatsapp", "WhatsApp numbers", MessageCircle)] },
   { label: "Records", items: [item("orders", "Orders", ShoppingCart), item("payments", "Payments", CreditCard), item("stock", "Stock", Boxes)] },
   {
     label: "Platform",

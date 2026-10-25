@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { AttentionItem } from "@/hooks/useControlApi";
 
 /** What kind of problem an item is: a customer's business (a company suspended or overdue) or the platform itself. */
-export const BUSINESS_KINDS: AttentionItem["kind"][] = ["company_suspended", "company_past_due"];
+export const BUSINESS_KINDS: AttentionItem["kind"][] = ["company_suspended", "company_past_due", "whatsapp_request"];
 export const PLATFORM_KINDS: AttentionItem["kind"][] = ["integration", "rejected_webhooks", "job", "outbox"];
 
 function Row({ item }: { item: AttentionItem }) {
@@ -17,7 +17,8 @@ function Row({ item }: { item: AttentionItem }) {
       </div>
     </div>
   );
-  const to = item.companyId ? `/companies/${item.companyId}` : PLATFORM_KINDS.includes(item.kind) ? "/integrations" : undefined;
+  // A waiting WhatsApp number is dealt with on its own page, not on the company's.
+  const to = item.kind === "whatsapp_request" ? "/whatsapp" : item.companyId ? `/companies/${item.companyId}` : PLATFORM_KINDS.includes(item.kind) ? "/integrations" : undefined;
   return to ? (
     <Link to={to} className="block hover:bg-muted/50 rounded">
       {body}

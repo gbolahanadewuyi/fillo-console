@@ -17,7 +17,8 @@ export type Action =
   | "user.assist"
   | "user.suspend"
   | "case.write"
-  | "billing.manage";
+  | "billing.manage"
+  | "whatsapp.manage";
 
 const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
 
@@ -33,6 +34,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "user.assist": SUPPORT,
   "user.suspend": ADMIN,
   "case.write": SUPPORT,
+  /** Assign a WhatsApp number to a company and move its setup along. */
+  "whatsapp.manage": SUPPORT,
   /** Assign a plan, extend a trial, edit a plan: finance handles billing; support does not. */
   "billing.manage": ["platform_owner", "platform_admin", "platform_finance"],
 };
@@ -49,6 +52,7 @@ export type PageKey =
   | "orders"
   | "payments"
   | "stock"
+  | "whatsapp"
   | "platform"
   | "integrations"
   | "feature-flags"
@@ -67,6 +71,7 @@ export const PAGE_PATHS: Record<PageKey, string> = {
   orders: "/orders",
   payments: "/payments",
   stock: "/stock",
+  whatsapp: "/whatsapp",
   platform: "/platform",
   integrations: "/integrations",
   "feature-flags": "/feature-flags",
@@ -89,6 +94,7 @@ const PAGE_ROLES: Record<PageKey, readonly PlatformRole[]> = {
   orders: EVERYONE,
   payments: EVERYONE,
   stock: EVERYONE,
+  whatsapp: EVERYONE,
   platform: EVERYONE,
   integrations: EVERYONE,
   activity: EVERYONE,
