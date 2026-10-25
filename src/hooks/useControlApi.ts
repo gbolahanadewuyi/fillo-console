@@ -594,6 +594,23 @@ export interface PlanPatch {
   isActive?: boolean;
 }
 
+export interface NewPlanInput {
+  name: string;
+  price: string;
+  stationLimit: number | null;
+  userLimit: number | null;
+  featureCodes: string[];
+  isActive: boolean;
+}
+
+export function useCreatePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ input, reason }: { input: NewPlanInput; reason: string }) => apiRequest<Plan>("POST", "/control/plans", { ...input, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
 export function useUpdatePlan() {
   const qc = useQueryClient();
   return useMutation({

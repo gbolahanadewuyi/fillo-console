@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
 import { useControlPlans, type Plan } from "@/hooks/useControlApi";
@@ -12,14 +13,21 @@ import { PlanDialog } from "@/components/PlanDialog";
 export default function Plans() {
   const { user } = useAuth();
   const { data, error, refetch } = useControlPlans();
-  const [editing, setEditing] = useState<Plan | null>(null);
+  const [editing, setEditing] = useState<Plan | "new" | null>(null);
   const manage = can(user?.platformRole, "billing.manage");
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Plans & Billing</h1>
-        <p className="text-sm text-muted-foreground">A company on a plan is held to its limits and features. A company with no plan is unrestricted. Assign a plan from the company's Billing tab.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Plans & Billing</h1>
+          <p className="text-sm text-muted-foreground">A company on a plan is held to its limits and features. A company with no plan is unrestricted. Assign a plan from the company's Billing tab.</p>
+        </div>
+        {manage && (
+          <Button size="sm" onClick={() => setEditing("new")}>
+            <Plus className="mr-1 h-4 w-4" /> New plan
+          </Button>
+        )}
       </div>
       {error && <QueryError error={error} onRetry={() => void refetch()} what="plans" />}
       <div className="grid gap-4 md:grid-cols-3">
@@ -64,7 +72,7 @@ export default function Plans() {
           </Card>
         ))}
       </div>
-      {editing && <PlanDialog plan={editing} onClose={() => setEditing(null)} />}
+      {editing && <PlanDialog plan={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

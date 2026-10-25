@@ -186,7 +186,7 @@ describe("plans", () => {
     expect(save).toBeDisabled();
     type("Price (₦ a month)", "16000");
     type("People limit", "");
-    fireEvent.click(screen.getByRole("checkbox", { name: "WhatsApp Integration" }));
+    fireEvent.click(screen.getByRole("switch", { name: "WhatsApp Integration" }));
     type(/reason/i, "price review");
     expect(save).toBeEnabled();
     fireEvent.click(save);
@@ -221,5 +221,69 @@ describe("plans", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Unknown feature: teleport");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("New plan: switch on what is included, and it is created with exactly that", async () => {
+    apiRequest.mockImplementation(async (method: string, path: string) => {
+      if (method === "POST") return { ...plans[0], id: "p9", name: "Growth Plus" };
+      return path.startsWith("/control/feature-flags") ? catalogue : plans;
+    });
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: /New plan/ }));
+    const save = await screen.findByRole("button", { name: "Create plan" });
+    type("Name", "  Growth Plus ");
+    type("Price (₦ a month)", "50000");
+    type("Station limit", "5");
+    fireEvent.click(screen.getByRole("switch", { name: "WhatsApp Integration" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Advanced Reports" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Advanced Reports" })); // changed their mind
+    expect(screen.getByRole("switch", { name: "Offered" })).toBeChecked(); // a new plan starts offered
+    type(/reason/i, "new tier for chains");
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/plans", { name: "Growth Plus", price: "50000", stationLimit: 5, userLimit: null, featureCodes: ["whatsapp"], isActive: true, reason: "new tier for chains" }),
+    );
+  });
+
+  it("New plan: a missing name or price is refused next to the field, and nothing is sent", async () => {
+    api();
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: /New plan/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create plan" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Give the plan a name")).toBeInTheDocument();
+    expect(within(dialog).getByText("An amount like 15000 or 15000.50")).toBeInTheDocument();
+    expect(posts("POST")).toHaveLength(0);
+  });
+
+  it("New plan: a name that makes an existing code is refused by the API and the dialog says why", async () => {
+    apiRequest.mockImplementation(async (method: string, path: string) => {
+      if (method === "POST") throw new ApiError(409, 'A plan with the code "starter" already exists. Choose another name.');
+      return path.startsWith("/control/feature-flags") ? catalogue : plans;
+    });
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: /New plan/ }));
+    type("Name", "Starter");
+    type("Price (₦ a month)", "1000");
+    type(/reason/i, "adding a tier");
+    fireEvent.click(screen.getByRole("button", { name: "Create plan" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent('code "starter" already exists');
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("only billing roles are offered New plan", async () => {
+    role = "platform_support";
+    api();
+    wrap(<Plans />);
+    await screen.findByText("Starter");
+    expect(screen.queryByRole("button", { name: /New plan/ })).not.toBeInTheDocument();
+  });
+
+  it("editing uses the same switches, starting from what the plan includes", async () => {
+    api();
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Starter" }));
+    expect(await screen.findByRole("switch", { name: "Advanced Reports" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "WhatsApp Integration" })).not.toBeChecked();
   });
 });
