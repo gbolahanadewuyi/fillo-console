@@ -70,6 +70,16 @@ describe("cases list", () => {
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/cases", { companyId: "c1", title: "Missing payment", userId: undefined, orderId: "o1", posTransactionId: undefined, note: undefined }));
   });
 
+  it("a title that is too short, or no company, is refused next to the field and nothing is sent", async () => {
+    apiRequest.mockResolvedValue(page([]));
+    show("/cases?new=1");
+    fireEvent.change(await screen.findByLabelText("Title"), { target: { value: "ab" } });
+    fireEvent.click(screen.getByRole("button", { name: "Open case" }));
+    expect(await screen.findByText("Give the case a short title")).toBeInTheDocument();
+    expect(screen.getAllByText("Choose a company")).toHaveLength(2); // the placeholder and the error under it
+    expect(apiRequest.mock.calls.some(([m]) => m === "POST")).toBe(false);
+  });
+
   it("a failed API says so", async () => {
     apiRequest.mockRejectedValue(new ApiError(500, "db is down"));
     show("/cases");

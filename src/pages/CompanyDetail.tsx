@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useControlCompany, useControlStations, useControlUsers, useControlActivity, useUnsuspendCompany, type ControlCompany } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { FieldError } from "@/components/FieldError";
 import { useUpdateCompanyBranding, useSuspendCompany } from "@/hooks/useControlApi";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { IntegrationsTable } from "@/components/IntegrationsTable";
@@ -18,7 +22,16 @@ import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
 
+/** The tab is kept in the address, so a link can open a company straight on its cases or invitations. */
+const TABS = ["overview", "stations", "users", "integrations", "subscription", "cases", "branding", "activity"];
+
 const HEX = /^#[0-9A-Fa-f]{6}$/;
+
+const brandingSchema = z.object({
+  primaryColor: z.string().regex(HEX, "Use a hex colour like #1B6EF3."),
+  secondaryColor: z.string().regex(HEX, "Use a hex colour like #1B6EF3."),
+});
+type BrandingValues = z.infer<typeof brandingSchema>;
 
 /** Its own component so the fields start from the company's saved colours once they have loaded. */
 function BrandingForm({ company }: { company: ControlCompany }) {
@@ -26,50 +39,54 @@ function BrandingForm({ company }: { company: ControlCompany }) {
   const { toast } = useToast();
   const brandingMut = useUpdateCompanyBranding();
   const editable = can(user?.platformRole, "company.branding");
-  const [primaryColor, setPrimaryColor] = useState(company.primaryColor ?? "#1B6EF3");
-  const [secondaryColor, setSecondaryColor] = useState(company.secondaryColor ?? "#0B1B2A");
-  const valid = HEX.test(primaryColor) && HEX.test(secondaryColor);
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<BrandingValues>({
+    resolver: zodResolver(brandingSchema),
+    defaultValues: { primaryColor: company.primaryColor ?? "#1B6EF3", secondaryColor: company.secondaryColor ?? "#0B1B2A" },
+  });
+
+  async function save(values: BrandingValues) {
+    try {
+      await brandingMut.mutateAsync({ id: company.id, payload: values });
+      toast({ title: "Branding updated" });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
+    }
+  }
 
   return (
-    <CardContent className="space-y-4">
-      <div className="grid sm:grid-cols-2 gap-4">
-        {[
-          { id: "primary", label: "Primary colour", value: primaryColor, set: setPrimaryColor },
-          { id: "secondary", label: "Secondary colour", value: secondaryColor, set: setSecondaryColor },
-        ].map((f) => (
-          <div key={f.id} className="space-y-2">
-            <Label htmlFor={f.id}>{f.label}</Label>
-            <div className="flex gap-2">
-              <Input id={f.id} value={f.value} onChange={(e) => f.set(e.target.value)} placeholder="#1B6EF3" disabled={!editable} aria-invalid={!HEX.test(f.value)} />
-              <div className="h-9 w-9 rounded border" style={{ background: HEX.test(f.value) ? f.value : "transparent" }} />
-            </div>
-            {!HEX.test(f.value) && <p className="text-xs text-destructive">Use a hex colour like #1B6EF3.</p>}
-          </div>
-        ))}
-      </div>
-      {editable ? (
-        <Button
-          disabled={brandingMut.isPending || !valid}
-          onClick={async () => {
-            try {
-              await brandingMut.mutateAsync({ id: company.id, payload: { primaryColor, secondaryColor } });
-              toast({ title: "Branding updated" });
-            } catch (e) {
-              toast({ title: "Failed", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
-            }
-          }}
-        >
-          Save branding
-        </Button>
-      ) : (
-        <p className="text-xs text-muted-foreground">Your role can view branding but not change it.</p>
-      )}
+    <CardContent>
+      <form onSubmit={handleSubmit(save)} noValidate className="space-y-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          {([["primaryColor", "primary", "Primary colour"], ["secondaryColor", "secondary", "Secondary colour"]] as const).map(([name, id, label]) => {
+            const value = watch(name);
+            return (
+              <div key={id} className="space-y-2">
+                <Label htmlFor={id}>{label}</Label>
+                <div className="flex gap-2">
+                  <Input id={id} placeholder="#1B6EF3" disabled={!editable} aria-invalid={!!errors[name]} aria-describedby={`${id}-error`} {...register(name)} />
+                  <div className="h-9 w-9 rounded border" style={{ background: HEX.test(value) ? value : "transparent" }} />
+                </div>
+                <FieldError id={`${id}-error`} message={errors[name]?.message} />
+              </div>
+            );
+          })}
+        </div>
+        {editable ? (
+          <Button type="submit" disabled={isSubmitting}>
+            Save branding
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">Your role can view branding but not change it.</p>
+        )}
+      </form>
     </CardContent>
   );
 }
 
 export default function CompanyDetail() {
   const { id } = useParams<{ id: string }>();
+  const [params, setParams] = useSearchParams();
+  const tab = TABS.includes(params.get("tab") ?? "") ? params.get("tab")! : "overview";
   const { data: company, isLoading, error, refetch } = useControlCompany(id!);
   const { data: stations, error: stationsError } = useControlStations({ companyId: id, pageSize: 50 });
   const { data: users, error: usersError } = useControlUsers({ companyId: id, pageSize: 50 });
@@ -142,7 +159,11 @@ export default function CompanyDetail() {
         />
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setParams((cur) => { const next = new URLSearchParams(cur); if (v === "overview") next.delete("tab"); else next.set("tab", v); return next; }, { replace: true })}
+        className="space-y-4"
+      >
         <TabsList className="flex w-full overflow-x-auto justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="stations">Stations</TabsTrigger>

@@ -1,23 +1,35 @@
-import { useState } from "react";
-import { useControlCompanies } from "@/hooks/useControlApi";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge } from "@/components/StatusBadge";
-import { TablePagination } from "@/components/TablePagination";
 import { Link } from "react-router-dom";
-import { Search } from "lucide-react";
-import { QueryError } from "@/components/QueryError";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useControlCompanies, type ControlCompany } from "@/hooks/useControlApi";
+import { apiValue, useTableState } from "@/hooks/useTableState";
+import { DataTable, SearchBox, type Column } from "@/components/DataTable";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { StatusBadge } from "@/components/StatusBadge";
+
+const COLUMNS: Column<ControlCompany>[] = [
+  {
+    key: "name",
+    header: "Company",
+    sortKey: "name",
+    cell: (c) => (
+      <>
+        <Link to={`/companies/${c.id}`} className="font-medium hover:underline">
+          {c.name}
+        </Link>
+        {c.industry && <div className="text-xs text-muted-foreground">{c.industry}</div>}
+      </>
+    ),
+  },
+  { key: "status", header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
+  { key: "stations", header: "Stations", cell: (c) => c.stationCount },
+  { key: "users", header: "Users", cell: (c) => c.userCount },
+  { key: "plan", header: "Plan", secondary: true, cell: (c) => c.planName ?? "—" },
+  { key: "created", header: "Created", sortKey: "createdAt", secondary: true, className: "text-sm text-muted-foreground", cell: (c) => new Date(c.createdAt).toLocaleDateString() },
+];
 
 export default function Companies() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("all");
-
-  const queryStatus = status === "all" ? "" : status;
-  const { data, isLoading, error, refetch } = useControlCompanies({ page, pageSize: 20, search: useDebouncedValue(search.trim()), status: queryStatus });
+  const t = useTableState();
+  const { data, isLoading, error, refetch } = useControlCompanies({ page: t.page, pageSize: 20, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
 
   return (
     <div className="space-y-4">
@@ -25,32 +37,13 @@ export default function Companies() {
         <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
         <p className="text-sm text-muted-foreground">Every company on the Fillo platform.</p>
       </div>
-
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Companies</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-3 mt-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name…"
-                className="pl-9"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-            <Select
-              value={status}
-              onValueChange={(v) => {
-                setStatus(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <SearchBox value={t.filter("search")} onChange={(v) => t.setFilter("search", v)} placeholder="Search by name…" />
+            <Select value={t.filter("status") || "all"} onValueChange={(v) => t.setFilter("status", v)}>
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
@@ -64,55 +57,20 @@ export default function Companies() {
           </div>
         </CardHeader>
         <CardContent>
-          {error && <QueryError error={error} onRetry={() => void refetch()} what="companies" />}
-          <div className="rounded-md border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Stations</TableHead>
-                  <TableHead>Users</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Loading…
-                    </TableCell>
-                  </TableRow>
-                ) : error ? null : (data?.data.length ?? 0) === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No companies found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data!.data.map((c) => (
-                    <TableRow key={c.id} className="hover:bg-muted/40">
-                      <TableCell>
-                        <Link to={`/companies/${c.id}`} className="font-medium hover:underline">
-                          {c.name}
-                        </Link>
-                        {c.industry && <div className="text-xs text-muted-foreground">{c.industry}</div>}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={c.status} />
-                      </TableCell>
-                      <TableCell>{c.stationCount}</TableCell>
-                      <TableCell>{c.userCount}</TableCell>
-                      <TableCell>{c.planName ?? "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {data && <TablePagination page={data.page} pageSize={data.pageSize} total={data.total} totalPages={data.totalPages} onPageChange={setPage} />}
+          <DataTable
+            columns={COLUMNS}
+            rows={data?.data}
+            rowKey={(c) => c.id}
+            what="companies"
+            empty="No companies found."
+            loading={isLoading}
+            error={error}
+            onRetry={() => void refetch()}
+            pagination={data}
+            onPageChange={t.setPage}
+            sort={t.sort}
+            onSortChange={t.setSort}
+          />
         </CardContent>
       </Card>
     </div>

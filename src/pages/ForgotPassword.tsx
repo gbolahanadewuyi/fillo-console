@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Logo } from "@/components/Logo";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,20 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { FieldError } from "@/components/FieldError";
+
+const schema = z.object({ email: z.string().trim().min(1, "Enter your email").email("Enter a valid email") });
+type Values = z.infer<typeof schema>;
 
 export default function ForgotPassword() {
   const { resetPassword } = useAuth();
-  const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { email: "" } });
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async ({ email }: Values) => {
     setError(null);
-    setSubmitting(true);
     try {
-      await resetPassword(email.trim());
+      await resetPassword(email);
       setSent(true);
     } catch (err) {
       // Whether the address has an account is never revealed. Only problems that are not about the
@@ -28,8 +32,6 @@ export default function ForgotPassword() {
       const status = (err as { status?: number }).status;
       if (status === 0 || status === 429) setError(err instanceof Error ? err.message : "Please try again shortly.");
       else setSent(true);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -57,22 +59,15 @@ export default function ForgotPassword() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@fillo.cloud"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Input id="email" type="email" autoComplete="email" placeholder="you@fillo.cloud" aria-invalid={!!errors.email} aria-describedby="email-error" {...register("email")} />
+                  <FieldError id="email-error" message={errors.email?.message} />
                 </div>
                 {error && <div className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2">{error}</div>}
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send reset link
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">

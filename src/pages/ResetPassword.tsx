@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Logo } from "@/components/Logo";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,30 +11,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { OwnAuthError, resetPassword } from "@/lib/own-auth";
 
+import { FieldError } from "@/components/FieldError";
+
 const MIN_LENGTH = 10;
+
+const schema = z
+  .object({ password: z.string().min(MIN_LENGTH, `Use at least ${MIN_LENGTH} characters.`), confirm: z.string() })
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The two passwords do not match." });
+type Values = z.infer<typeof schema>;
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { password: "", confirm: "" } });
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async ({ password }: Values) => {
     setError(null);
-    if (password.length < MIN_LENGTH) return setError(`Use at least ${MIN_LENGTH} characters.`);
-    if (password !== confirm) return setError("The two passwords do not match.");
-    setSubmitting(true);
     try {
       await resetPassword(token, password);
       setDone(true);
     } catch (err) {
       setError(err instanceof OwnAuthError ? err.message : "Network error. Check your connection and try again.");
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -66,14 +68,16 @@ export default function ResetPassword() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password">New password</Label>
-                  <Input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <Input id="password" type="password" autoComplete="new-password" aria-invalid={!!errors.password} aria-describedby="password-error" {...register("password")} />
+                  <FieldError id="password-error" message={errors.password?.message} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm">Confirm new password</Label>
-                  <Input id="confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+                  <Input id="confirm" type="password" autoComplete="new-password" aria-invalid={!!errors.confirm} aria-describedby="confirm-error" {...register("confirm")} />
+                  <FieldError id="confirm-error" message={errors.confirm?.message} />
                 </div>
                 {error && (
                   <div className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2">
@@ -85,8 +89,8 @@ export default function ResetPassword() {
                     )}
                   </div>
                 )}
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Change password
                 </Button>
               </form>

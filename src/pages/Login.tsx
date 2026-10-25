@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -7,9 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { FieldError } from "@/components/FieldError";
 import { useToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api";
 import { mockPlatformUsers, MOCK_PLATFORM_PASSWORD, getPlatformRoleMeta } from "@/lib/mock/users";
+
+const schema = z.object({ email: z.string().trim().min(1, "Enter your email").email("Enter a valid email"), password: z.string().min(1, "Enter your password") });
+type Values = z.infer<typeof schema>;
 
 // The demo accounts exist only in the local Auth emulator. Real builds must not advertise them.
 const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
@@ -18,32 +25,25 @@ export default function Login() {
   const { user, login, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
 
   if (!loading && user) return <Navigate to="/" replace />;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async ({ email, password }: Values) => {
     setError(null);
-    setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(email, password);
       toast({ title: "Welcome", description: "Signed in to Fillo Console." });
       navigate("/", { replace: true });
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Sign-in failed.";
-      setError(msg);
-    } finally {
-      setSubmitting(false);
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Sign-in failed.");
     }
   };
 
   const fillDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword(MOCK_PLATFORM_PASSWORD);
+    setValue("email", demoEmail);
+    setValue("password", MOCK_PLATFORM_PASSWORD);
     setError(null);
   };
 
@@ -62,33 +62,20 @@ export default function Login() {
             <CardTitle className="text-base">Sign in</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@fillo.cloud"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="email" type="email" autoComplete="email" placeholder="you@fillo.cloud" aria-invalid={!!errors.email} aria-describedby="email-error" {...register("email")} />
+                <FieldError id="email-error" message={errors.email?.message} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <Input id="password" type="password" autoComplete="current-password" aria-invalid={!!errors.password} aria-describedby="password-error" {...register("password")} />
+                <FieldError id="password-error" message={errors.password?.message} />
               </div>
               {error && <div className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2">{error}</div>}
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in
               </Button>
               <p className="text-xs text-center">
@@ -128,9 +115,6 @@ export default function Login() {
         </Card>
         )}
 
-        <p className="text-center text-xs text-muted-foreground">
-          Fillo Console is an internal operator tool. Tenant data is isolated per company. All sign-ins are audited.
-        </p>
       </div>
     </div>
   );

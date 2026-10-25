@@ -9,6 +9,7 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 - **Real data only.** Pages show what the API returns, or an error saying it could not be loaded. There is no mock data and no fallback: staff act on what they see.
 - **The API is the authority.** The role comes from `GET /control/me`, which the API resolves from its own staff table or allowlist. It is never guessed from an email address. `src/lib/permissions.ts` mirrors the API's rules so the console doesn't offer what will be refused; it never replaces the server check.
 - **Every change says why.** Suspend, reactivate and feature-flag changes go through `ConfirmWithReason` (a reason of at least 5 characters). The API requires it and keeps it in the audit trail.
+- **A list's state is in its address.** Page, sort and filters are in the URL, so a link opens the same view and reload keeps it. Forms use react-hook-form with zod, with the message next to the field.
 - **No direct data edits.** The console never edits orders, payments, stock or passwords. It can email a person a reset link; they choose their own password.
 - **Staff accounts and company owners are out of reach** of the person actions (the API refuses them).
 
@@ -63,11 +64,13 @@ src/
   contexts/AuthContext.tsx   sign-in; the profile and role come from GET /control/me
   services/api.ts            API client: bearer token, one silent refresh on 401, timeout, ApiError
   hooks/useControlApi.ts     one hook per resource; calls the API and nothing else
+  hooks/useTableState.ts     page, sort and filters of a list, kept in the address (so a view can be shared); in memory inside a tab
   lib/permissions.ts         who may open which page and do which action (mirrors the API)
   lib/nav.ts                 the one navigation list (sidebar and mobile menu)
   components/
     ConfirmWithReason.tsx    every sensitive change: describe it, require a reason, close only on success
     QueryError.tsx           what a failed request looks like, with Retry
+    DataTable.tsx            the one table: sortable headers, server pagination, loading / error / empty in words; SearchBox
     ActivityLedger.tsx       filterable ledger used by Activity and Audit Logs
     RoleGate.tsx             refuses a page the role does not include
     StatusBadge.tsx / TablePagination.tsx / AppSidebar.tsx / MobileNav.tsx / ui/*

@@ -1,17 +1,28 @@
-import { useState } from "react";
-import { useControlStations } from "@/hooks/useControlApi";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
-import { QueryError } from "@/components/QueryError";
+import { useControlStations, type ControlStation } from "@/hooks/useControlApi";
+import { useTableState } from "@/hooks/useTableState";
+import { DataTable, SearchBox, type Column } from "@/components/DataTable";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+const COLUMNS: Column<ControlStation>[] = [
+  { key: "name", header: "Station", sortKey: "name", className: "font-medium", cell: (s) => s.name },
+  {
+    key: "company",
+    header: "Company",
+    cell: (s) => (
+      <Link to={`/companies/${s.companyId}`} className="text-primary hover:underline">
+        {s.companyName ?? s.companyId}
+      </Link>
+    ),
+  },
+  { key: "address", header: "Address", secondary: true, className: "text-sm text-muted-foreground", cell: (s) => s.address ?? "—" },
+  { key: "users", header: "Users", cell: (s) => s.userCount ?? "—" },
+  { key: "created", header: "Created", sortKey: "createdAt", secondary: true, className: "text-sm text-muted-foreground", cell: (s) => new Date(s.createdAt).toLocaleDateString() },
+];
 
 export default function Stations() {
-  const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const { data, error, refetch } = useControlStations({ search: debounced, pageSize: 50 });
+  const t = useTableState();
+  const { data, isLoading, error, refetch } = useControlStations({ page: t.page, pageSize: 20, search: t.filter("search"), sort: t.sort });
 
   return (
     <div className="space-y-4">
@@ -21,58 +32,24 @@ export default function Stations() {
       </div>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">All stations</CardTitle>
-          <div className="relative mt-3 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search stations…"
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onBlur={() => setDebounced(search)}
-              onKeyDown={(e) => e.key === "Enter" && setDebounced(search)}
-            />
+          <div className="max-w-sm">
+            <SearchBox value={t.filter("search")} onChange={(v) => t.setFilter("search", v)} placeholder="Search stations…" />
           </div>
         </CardHeader>
         <CardContent>
-          {error && <QueryError error={error} onRetry={() => void refetch()} what="stations" />}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Station</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Orders</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.data ?? []).map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>
-                    <Link to={`/companies/${s.companyId}`} className="text-primary hover:underline">
-                      {s.companyName ?? s.companyId}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={s.status} />
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{s.address ?? "—"}</TableCell>
-                  <TableCell>{s.userCount ?? "—"}</TableCell>
-                  <TableCell>{s.orderCount ?? "—"}</TableCell>
-                </TableRow>
-              ))}
-              {!error && (data?.data?.length ?? 0) === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    No stations.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={COLUMNS}
+            rows={data?.data}
+            rowKey={(s) => s.id}
+            what="stations"
+            loading={isLoading}
+            error={error}
+            onRetry={() => void refetch()}
+            pagination={data}
+            onPageChange={t.setPage}
+            sort={t.sort}
+            onSortChange={t.setSort}
+          />
         </CardContent>
       </Card>
     </div>

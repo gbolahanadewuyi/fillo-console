@@ -6,7 +6,8 @@ import { ApiError } from "@/services/api";
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
 vi.mock("@/services/api", async () => ({ ...(await vi.importActual<typeof import("@/services/api")>("@/services/api")), apiRequest }));
-vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { platformRole: "platform_support" } }) }));
+let role = "platform_support";
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { platformRole: role } }) }));
 
 import Orders from "./Orders";
 import OrderDetail from "./OrderDetail";
@@ -43,6 +44,7 @@ const order = {
 
 beforeEach(() => {
   apiRequest.mockReset();
+  role = "platform_support";
 });
 
 describe("orders", () => {
@@ -154,5 +156,18 @@ describe("company page", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "People" }));
     fireEvent.click(screen.getByRole("tab", { name: "People" }));
     await waitFor(() => expect(apiRequest.mock.calls.some(([, p]) => String(p).startsWith("/control/invites?") && String(p).includes("companyId=c1"))).toBe(true));
+  });
+
+  it("the settings tab refuses a colour that is not hex, next to the field, and saves nothing", async () => {
+    role = "platform_admin";
+    apiRequest.mockImplementation(async (_m: string, path: string) => (path === "/control/companies/c1" ? { id: "c1", name: "Real Gas Ltd", status: "active", subscriptionStatus: "ACTIVE", createdAt: "2026-01-01T00:00:00Z", stationCount: 1, userCount: 1, primaryColor: "#112233", secondaryColor: "#445566" } : page([])));
+    show("/companies/c1?tab=branding", [["/companies/:id", <CompanyDetail />]]);
+    fireEvent.change(await screen.findByLabelText("Primary colour"), { target: { value: "blue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save branding" }));
+    expect(await screen.findByText("Use a hex colour like #1B6EF3.")).toBeInTheDocument();
+    expect(apiRequest.mock.calls.some(([m]) => m === "PATCH")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Primary colour"), { target: { value: "#abcdef" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save branding" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/branding", { primaryColor: "#abcdef", secondaryColor: "#445566" }));
   });
 });

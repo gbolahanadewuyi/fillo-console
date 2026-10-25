@@ -12,6 +12,7 @@ export function useCompanyScope() {
     clear: () => {
       const next = new URLSearchParams(params);
       next.delete("companyId");
+      next.delete("page");
       setParams(next, { replace: true });
     },
   };

@@ -162,11 +162,11 @@ export function useControlStats() {
   });
 }
 
-export function useControlCompanies(params: { page?: number; pageSize?: number; search?: string; status?: string }) {
-  const { page = 1, pageSize = 20, search = "", status = "" } = params;
+export function useControlCompanies(params: { page?: number; pageSize?: number; search?: string; status?: string; sort?: string }) {
+  const { page = 1, pageSize = 20, search = "", status = "", sort = "" } = params;
   return useQuery({
-    queryKey: ["control", "companies", page, pageSize, search, status],
-    queryFn: () => apiRequest<Paginated<ControlCompany>>("GET", `/control/companies?${listParams({ page, pageSize, search, status })}`),
+    queryKey: ["control", "companies", page, pageSize, search, status, sort],
+    queryFn: () => apiRequest<Paginated<ControlCompany>>("GET", `/control/companies?${listParams({ page, pageSize, search, status, sort })}`),
   });
 }
 
@@ -178,19 +178,19 @@ export function useControlCompany(id: string) {
   });
 }
 
-export function useControlStations(params: { page?: number; pageSize?: number; search?: string; companyId?: string } = {}) {
-  const { page = 1, pageSize = 20, search = "", companyId = "" } = params;
+export function useControlStations(params: { page?: number; pageSize?: number; search?: string; companyId?: string; sort?: string } = {}) {
+  const { page = 1, pageSize = 20, search = "", companyId = "", sort = "" } = params;
   return useQuery({
-    queryKey: ["control", "stations", page, pageSize, search, companyId],
-    queryFn: () => apiRequest<Paginated<ControlStation>>("GET", `/control/stations?${listParams({ page, pageSize, search, companyId })}`),
+    queryKey: ["control", "stations", page, pageSize, search, companyId, sort],
+    queryFn: () => apiRequest<Paginated<ControlStation>>("GET", `/control/stations?${listParams({ page, pageSize, search, companyId, sort })}`),
   });
 }
 
-export function useControlUsers(params: { page?: number; pageSize?: number; search?: string; companyId?: string; status?: string } = {}) {
-  const { page = 1, pageSize = 20, search = "", companyId = "", status = "" } = params;
+export function useControlUsers(params: { page?: number; pageSize?: number; search?: string; companyId?: string; status?: string; sort?: string } = {}) {
+  const { page = 1, pageSize = 20, search = "", companyId = "", status = "", sort = "" } = params;
   return useQuery({
-    queryKey: ["control", "users", page, pageSize, search, companyId, status],
-    queryFn: () => apiRequest<Paginated<ControlUser>>("GET", `/control/users?${listParams({ page, pageSize, search, companyId, status })}`),
+    queryKey: ["control", "users", page, pageSize, search, companyId, status, sort],
+    queryFn: () => apiRequest<Paginated<ControlUser>>("GET", `/control/users?${listParams({ page, pageSize, search, companyId, status, sort })}`),
   });
 }
 
@@ -341,11 +341,11 @@ export function useUserAction() {
   });
 }
 
-export function useControlInvites(params: { page?: number; pageSize?: number; status?: string; companyId?: string; search?: string } = {}) {
-  const { page = 1, pageSize = 20, status = "", companyId = "", search = "" } = params;
+export function useControlInvites(params: { page?: number; pageSize?: number; status?: string; companyId?: string; search?: string; sort?: string } = {}) {
+  const { page = 1, pageSize = 20, status = "", companyId = "", search = "", sort = "" } = params;
   return useQuery({
-    queryKey: ["control", "invites", page, pageSize, status, companyId, search],
-    queryFn: () => apiRequest<Paginated<ControlInvite>>("GET", `/control/invites?${listParams({ page, pageSize, status, companyId, search })}`),
+    queryKey: ["control", "invites", page, pageSize, status, companyId, search, sort],
+    queryFn: () => apiRequest<Paginated<ControlInvite>>("GET", `/control/invites?${listParams({ page, pageSize, status, companyId, search, sort })}`),
   });
 }
 
@@ -438,7 +438,7 @@ export interface ControlMovement {
   createdAt: string;
 }
 
-export function useControlOrders(params: { page?: number; pageSize?: number; companyId?: string; status?: string; paymentStatus?: string; search?: string } = {}) {
+export function useControlOrders(params: { page?: number; pageSize?: number; companyId?: string; status?: string; paymentStatus?: string; search?: string; sort?: string } = {}) {
   const { page = 1, pageSize = 20, ...rest } = params;
   return useQuery({
     queryKey: ["control", "orders", page, pageSize, rest],
@@ -495,7 +495,7 @@ export interface ControlCase {
   notes: { id: string; author: string | null; body: string; createdAt: string }[];
 }
 
-export function useControlCases(params: { page?: number; pageSize?: number; companyId?: string; status?: string; search?: string } = {}) {
+export function useControlCases(params: { page?: number; pageSize?: number; companyId?: string; status?: string; search?: string; sort?: string } = {}) {
   const { page = 1, pageSize = 20, ...rest } = params;
   return useQuery({
     queryKey: ["control", "cases", page, pageSize, rest],

@@ -1,28 +1,26 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
 import { useControlInvites, useInviteAction, type ControlInvite } from "@/hooks/useControlApi";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { apiValue, useTableState } from "@/hooks/useTableState";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
-import { TablePagination } from "@/components/TablePagination";
-import { QueryError } from "@/components/QueryError";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
+import { DataTable, SearchBox, type Column } from "@/components/DataTable";
 
-/** Invitations across all companies: who was invited, whether it is still good, and the two things support can do. */
+/**
+ * Invitations across all companies (or one, with `companyId`): who was invited, whether it is still good, and
+ * the two things support can do. Its state sits in the address under `inv_…` when shown on its own page; inside a
+ * company's tab it stays in memory so it never fights the tab for the address.
+ */
 export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
   const { user } = useAuth();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const t = useTableState({ prefix: "inv_", syncUrl: !companyId });
   const [pending, setPending] = useState<{ invite: ControlInvite; action: "resend" | "revoke" } | null>(null);
-  const { data, error, refetch } = useControlInvites({ page, pageSize: 20, companyId, search: useDebouncedValue(search.trim()), status: status === "all" ? "" : status.toUpperCase() });
+  const { data, isLoading, error, refetch } = useControlInvites({ page: t.page, pageSize: 20, companyId, search: t.filter("search"), status: apiValue(t.filter("status")).toUpperCase(), sort: t.sort });
   const act = useInviteAction();
   const { toast } = useToast();
   const assist = can(user?.platformRole, "user.assist");
@@ -33,17 +31,34 @@ export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
     toast({ title: pending.action === "revoke" ? "Invitation revoked" : res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
   }
 
+  const columns: Column<ControlInvite>[] = [
+    { key: "email", header: "Invited", sortKey: "email", className: "font-medium", cell: (i) => i.email },
+    ...(companyId
+      ? []
+      : [{ key: "company", header: "Company", cell: (i: ControlInvite) => <Link to={`/companies/${i.companyId}`} className="text-primary hover:underline text-sm">{i.companyName}</Link> }]),
+    { key: "role", header: "Role", secondary: true, className: "text-sm", cell: (i) => i.roleName },
+    { key: "status", header: "Status", cell: (i) => <StatusBadge status={i.status} /> },
+    { key: "expires", header: "Expires", sortKey: "expiresAt", secondary: true, className: "text-sm text-muted-foreground", cell: (i) => new Date(i.expiresAt).toLocaleDateString() },
+    {
+      key: "actions",
+      header: "",
+      className: "w-[1%]",
+      cell: (i) =>
+        assist && (i.status === "pending" || i.status === "expired") ? (
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "resend" })}>Resend</Button>
+            {i.status === "pending" && <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "revoke" })}>Revoke</Button>}
+          </div>
+        ) : null,
+    },
+  ];
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search email…" className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-        </div>
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
+        <SearchBox value={t.filter("search")} onChange={(v) => t.setFilter("search", v)} placeholder="Search email…" />
+        <Select value={t.filter("status") || "all"} onValueChange={(v) => t.setFilter("status", v)}>
+          <SelectTrigger className="w-[160px]" aria-label="Invitation status"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
@@ -53,48 +68,20 @@ export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
           </SelectContent>
         </Select>
       </div>
-      {error && <QueryError error={error} onRetry={() => void refetch()} what="invitations" />}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Invited</TableHead>
-            {!companyId && <TableHead>Company</TableHead>}
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Expires</TableHead>
-            <TableHead className="w-[1%]" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(data?.data ?? []).map((i) => (
-            <TableRow key={i.id}>
-              <TableCell className="font-medium">{i.email}</TableCell>
-              {!companyId && (
-                <TableCell>
-                  <Link to={`/companies/${i.companyId}`} className="text-primary hover:underline text-sm">{i.companyName}</Link>
-                </TableCell>
-              )}
-              <TableCell className="text-sm">{i.roleName}</TableCell>
-              <TableCell><StatusBadge status={i.status} /></TableCell>
-              <TableCell className="text-sm text-muted-foreground">{new Date(i.expiresAt).toLocaleDateString()}</TableCell>
-              <TableCell>
-                {assist && (i.status === "pending" || i.status === "expired") && (
-                  <div className="flex gap-2 justify-end">
-                    <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "resend" })}>Resend</Button>
-                    {i.status === "pending" && <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "revoke" })}>Revoke</Button>}
-                  </div>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          {!error && (data?.data?.length ?? 0) === 0 && (
-            <TableRow>
-              <TableCell colSpan={companyId ? 5 : 6} className="text-center py-6 text-muted-foreground">No invitations.</TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      {data && <TablePagination page={data.page} pageSize={data.pageSize} total={data.total} totalPages={data.totalPages} onPageChange={setPage} />}
+      <DataTable
+        columns={columns}
+        rows={data?.data}
+        rowKey={(i) => i.id}
+        what="invitations"
+        empty="No invitations."
+        loading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
+        pagination={data}
+        onPageChange={t.setPage}
+        sort={t.sort}
+        onSortChange={t.setSort}
+      />
       {pending && (
         <ConfirmWithReason
           open
