@@ -12,7 +12,7 @@ export default function FeatureFlags() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Feature Flags</h1>
         <p className="text-sm text-muted-foreground">
-          Per-company overrides are stored, but no part of the apps reads them yet, so changing one has no effect today. Platform-wide defaults aren't supported.
+          Each feature, where the API checks it, and the companies with their own setting. The owner sets or removes a company's override from its Billing tab.
         </p>
       </div>
       {error ? (
@@ -30,7 +30,10 @@ export default function FeatureFlags() {
                 <CardTitle className="text-base flex items-center gap-2">
                   {flag.label} <Badge variant="outline" className="font-mono text-xs">{flag.key}</Badge>
                 </CardTitle>
-                {flag.description && <CardDescription className="mt-1">{flag.description}</CardDescription>}
+                <CardDescription className="mt-1">
+                  {flag.description && <>{flag.description}. </>}
+                  {flag.enforcedAt.length > 0 ? `Checked when: ${flag.enforcedAt.join(", ").toLowerCase()}.` : "Nothing in the apps uses this yet."}
+                </CardDescription>
               </CardHeader>
               {flag.overrides.length > 0 && (
                 <CardContent>

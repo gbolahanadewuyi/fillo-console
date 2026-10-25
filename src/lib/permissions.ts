@@ -16,7 +16,8 @@ export type Action =
   | "outbox.retry"
   | "user.assist"
   | "user.suspend"
-  | "case.write";
+  | "case.write"
+  | "billing.manage";
 
 const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
 
@@ -32,6 +33,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "user.assist": SUPPORT,
   "user.suspend": ADMIN,
   "case.write": SUPPORT,
+  /** Assign a plan, extend a trial, edit a plan: finance handles billing; support does not. */
+  "billing.manage": ["platform_owner", "platform_admin", "platform_finance"],
 };
 
 export function can(role: PlatformRole | undefined, action: Action): boolean {

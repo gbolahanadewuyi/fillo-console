@@ -118,6 +118,8 @@ export interface FeatureFlag {
   label: string;
   description?: string;
   enabledDefault: boolean;
+  /** Where the API actually checks this feature. Empty: nothing reads it yet. */
+  enforcedAt: string[];
   overrides: { scopeType: "platform" | "company" | "station"; scopeId: string; scopeLabel?: string; enabled: boolean }[];
 }
 
@@ -126,11 +128,26 @@ export interface Plan {
   name: string;
   code: string;
   price: string;
-  billingCycle: "monthly" | "yearly";
-  stationLimit?: number | null;
-  userLimit?: number | null;
+  billingCycle: string;
+  stationLimit: number | null;
+  userLimit: number | null;
   featureCodes: string[];
+  isActive: boolean;
+  /** How many companies are on it. */
+  companyCount: number;
   createdAt: string;
+}
+
+export type FeatureSource = "override" | "plan" | "unrestricted";
+
+export interface CompanyBilling {
+  subscriptionStatus: string;
+  trialEndsAt: string | null;
+  plan: { id: string; code: string; name: string } | null;
+  usage: { stations: { used: number; limit: number | null }; users: { used: number; limit: number | null } };
+  features: { key: string; label: string; enabled: boolean; source: FeatureSource; enforced: boolean }[];
+  /** Only for roles that handle billing. */
+  billing: { provider: string | null; customerId: string | null; subscriptionId: string | null } | null;
 }
 
 // Paginated envelope mirroring EOP-API
@@ -536,12 +553,50 @@ export function useRetryOutbox() {
   });
 }
 
+/** `enabled: null` removes the company's override, so it follows its plan again. */
 export function useUpdateFeatureFlag() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, enabled, scopeId, reason }: { key: string; enabled: boolean; scopeId: string; reason: string }) =>
+    mutationFn: ({ key, enabled, scopeId, reason }: { key: string; enabled: boolean | null; scopeId: string; reason: string }) =>
       apiRequest("PUT", `/control/feature-flags/${key}`, { enabled, scopeType: "company", scopeId, reason }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["control", "feature-flags"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useCompanyBilling(id: string) {
+  return useQuery({ queryKey: ["control", "billing", id], queryFn: () => apiRequest<CompanyBilling>("GET", `/control/companies/${id}/billing`), enabled: !!id });
+}
+
+export function useAssignPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, planId, reason }: { companyId: string; planId: string | null; reason: string }) => apiRequest<CompanyBilling>("PUT", `/control/companies/${companyId}/plan`, { planId, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useExtendTrial() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, days, reason }: { companyId: string; days: number; reason: string }) => apiRequest<CompanyBilling>("POST", `/control/companies/${companyId}/trial`, { days, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export interface PlanPatch {
+  name?: string;
+  price?: string;
+  stationLimit?: number | null;
+  userLimit?: number | null;
+  featureCodes?: string[];
+  isActive?: boolean;
+}
+
+export function useUpdatePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch, reason }: { id: string; patch: PlanPatch; reason: string }) => apiRequest<Plan>("PATCH", `/control/plans/${id}`, { ...patch, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
 

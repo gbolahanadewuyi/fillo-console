@@ -16,6 +16,7 @@ import { FieldError } from "@/components/FieldError";
 import { useUpdateCompanyBranding, useSuspendCompany } from "@/hooks/useControlApi";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { IntegrationsTable } from "@/components/IntegrationsTable";
+import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
 import { QueryError } from "@/components/QueryError";
@@ -329,32 +330,7 @@ export default function CompanyDetail() {
         </TabsContent>
 
         <TabsContent value="subscription">
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription</CardTitle>
-              <CardDescription>Billing status and trial. Plans are not linked to companies yet.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Subscription status</span>
-                <div>
-                  <StatusBadge status={company.subscriptionStatus.toLowerCase()} />
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Plan</span>
-                <div className="font-medium">{company.planName ?? "—"}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Trial ends</span>
-                <div>{company.trialEndsAt ? new Date(company.trialEndsAt).toLocaleString() : "—"}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Billing</span>
-                <div>{company.billingProvider ?? "Not configured"}</div>
-              </div>
-            </CardContent>
-          </Card>
+          <BillingPanel companyId={id!} companyName={company.name} />
         </TabsContent>
 
         <TabsContent value="branding">

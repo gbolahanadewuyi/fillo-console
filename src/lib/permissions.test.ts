@@ -20,6 +20,9 @@ describe("can (mirrors the API role matrix)", () => {
   it("support may keep case notes; finance may only read them", () => {
     expect(roles.filter((r) => can(r, "case.write"))).toEqual(["platform_owner", "platform_admin", "platform_support"]);
   });
+  it("finance and admins handle billing; support never does", () => {
+    expect(roles.filter((r) => can(r, "billing.manage"))).toEqual(["platform_owner", "platform_admin", "platform_finance"]);
+  });
   it("only the owner may change feature flags", () => {
     expect(roles.filter((r) => can(r, "flag.update"))).toEqual(["platform_owner"]);
   });
