@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/services/api";
+import { ErrorReference } from "@/components/ErrorReference";
 
 /** What a failed request looks like: the real reason and a retry, in place of the page's data. */
 export function QueryError({ error, onRetry, what = "this data" }: { error: unknown; onRetry?: () => void; what?: string }) {
@@ -18,6 +19,7 @@ export function QueryError({ error, onRetry, what = "this data" }: { error: unkn
       <div className="flex-1">
         <p className="font-medium">Couldn't load {what}</p>
         <p className="mt-0.5 text-muted-foreground">{message}</p>
+        <ErrorReference error={error} />
       </div>
       {onRetry && (
         <Button size="sm" variant="outline" onClick={onRetry}>

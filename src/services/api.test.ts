@@ -101,3 +101,37 @@ describe("apiRequest with own auth", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("what an API failure looks like to the console", () => {
+  it("shows the API's message, not its code, and keeps the code and the request id for support", async () => {
+    fetchMock.mockResolvedValueOnce(session("tok-1")).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "conflict", message: "This person has no login to unlock", requestId: "req_body" }), { status: 409, headers: { "Content-Type": "application/json", "X-Request-Id": "req_header" } }),
+    );
+    const { own, api } = await load();
+    await own.login("a@fillo.cloud", "pw");
+    const err = (await api.apiRequest("POST", "/control/users/u1/unlock", { reason: "x" }).catch((e) => e)) as { message: string; code?: string; status: number; requestId?: string };
+    expect(err).toBeInstanceOf(api.ApiError);
+    expect(err.message).toBe("This person has no login to unlock");
+    expect(err.code).toBe("conflict");
+    expect(err.status).toBe(409);
+    expect(err.requestId).toBe("req_header"); // the header wins; the body copy is the fallback
+  });
+
+  it("falls back to the id in the body, and to the code when there is no message", async () => {
+    fetchMock.mockResolvedValueOnce(session("tok-1")).mockResolvedValueOnce(json(500, { error: "internal_error", requestId: "req_body" }));
+    const { own, api } = await load();
+    await own.login("a@fillo.cloud", "pw");
+    const err = (await api.apiRequest("GET", "/control/stats").catch((e) => e)) as { message: string; code?: string; status: number; requestId?: string };
+    expect(err.message).toBe("internal_error");
+    expect(err.requestId).toBe("req_body");
+  });
+
+  it("a request that never reached the API has no id", async () => {
+    fetchMock.mockResolvedValueOnce(session("tok-1")).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { own, api } = await load();
+    await own.login("a@fillo.cloud", "pw");
+    const err = (await api.apiRequest("GET", "/control/stats").catch((e) => e)) as { message: string; code?: string; status: number; requestId?: string };
+    expect(err.status).toBe(0);
+    expect(err.requestId).toBeUndefined();
+  });
+});

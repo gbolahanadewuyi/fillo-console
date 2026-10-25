@@ -14,6 +14,8 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
+    /** The API's id for this request: what to quote so its log lines can be found. Absent when the request never reached it. */
+    public requestId?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -50,6 +52,11 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
   }
 }
 
+/** The API answers `{ error: <code>, message, requestId }`: show the message, keep the code, and carry the id. */
+function apiError(res: Response, body: { error?: string; message?: string; code?: string; requestId?: string }): ApiError {
+  return new ApiError(res.status, body.message || body.error || `HTTP ${res.status}`, body.code ?? body.error, res.headers.get("x-request-id") ?? body.requestId);
+}
+
 export async function apiRequest<T = unknown>(
   method: Method,
   path: string,
@@ -63,7 +70,7 @@ export async function apiRequest<T = unknown>(
     const res = await fetchWithTimeout(`${API_BASE}${path}`, init);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      throw new ApiError(res.status, err.error || err.message || `HTTP ${res.status}`, err.code);
+      throw apiError(res, err);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
@@ -96,7 +103,7 @@ export async function apiRequest<T = unknown>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new ApiError(res.status, err.error || err.message || `HTTP ${res.status}`, err.code);
+    throw apiError(res, err);
   }
 
   if (res.status === 204) return undefined as T;

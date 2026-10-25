@@ -72,7 +72,7 @@ describe("what the API returns is what is shown", () => {
     expect(await screen.findByText("Real Gas Ltd")).toBeInTheDocument();
   });
 
-  const stats = { totalCompanies: 1, activeCompanies: 1, trialCompanies: 0, suspendedCompanies: 0, totalStations: 1, activeStations: 1, totalUsers: 1, activeUsers: 1, ordersToday: 0, revenueToday: "0", revenue30d: [], activeIntegrations: 2, failedIntegrations: 1 };
+  const stats = { totalCompanies: 1, activeCompanies: 1, trialCompanies: 0, suspendedCompanies: 0, totalStations: 1, totalUsers: 1, activeUsers: 1, ordersToday: 3, paymentsToday: "2500", paymentsByDay: [{ date: "2030-01-15", payments: 1000 }, { date: "2030-01-16", payments: 2500 }], activeIntegrations: 2, failedIntegrations: 1 };
   const dashboardApi = (attention: unknown[]) =>
     apiRequest.mockImplementation(async (_m: string, path: string) => {
       if (path.startsWith("/control/stats")) return stats;
@@ -97,7 +97,25 @@ describe("what the API returns is what is shown", () => {
     dashboardApi([]);
     show(<Dashboard />);
     expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
-    expect(screen.getByText("Nothing failing")).toBeInTheDocument();
+    expect(screen.queryByText("Something is failing")).not.toBeInTheDocument();
+  });
+
+  it("the dashboard answers three questions in order: what needs me, how is business, is the platform healthy", async () => {
+    dashboardApi([]);
+    show(<Dashboard />);
+    await screen.findByText("Nothing is flagged.");
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual(["Needs attention", "Business", "Platform health"]);
+  });
+
+  it("business numbers say what they count, in naira and Lagos days", async () => {
+    dashboardApi([]);
+    show(<Dashboard />);
+    expect(await screen.findByText("Created since midnight in Lagos")).toBeInTheDocument();
+    expect(screen.getByText("Recorded since midnight in Lagos")).toBeInTheDocument();
+    expect(screen.getByText(/2,500/)).toBeInTheDocument(); // payments today
+    expect(screen.getByText(/Payments recorded, last 14 days: .*3,500/)).toBeInTheDocument(); // 1,000 + 2,500
+    expect(screen.getByText("Integrations: 2 connected, 1 failing")).toBeInTheDocument();
   });
 
   it("a failed attention request says so instead of claiming all is well", async () => {

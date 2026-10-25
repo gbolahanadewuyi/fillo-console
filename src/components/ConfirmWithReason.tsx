@@ -3,6 +3,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ErrorReference } from "@/components/ErrorReference";
 
 export const MIN_REASON_LENGTH = 5;
 
@@ -26,7 +27,7 @@ interface Props {
 export function ConfirmWithReason({ open, onOpenChange, title, description, confirmLabel, destructive, onConfirm }: Props) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const trimmed = reason.trim();
   const valid = trimmed.length >= MIN_REASON_LENGTH;
 
@@ -48,7 +49,7 @@ export function ConfirmWithReason({ open, onOpenChange, title, description, conf
       setReason("");
       onOpenChange(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The change failed.");
+      setError(e instanceof Error ? e : new Error("The change failed."));
     } finally {
       setBusy(false);
     }
@@ -64,10 +65,11 @@ export function ConfirmWithReason({ open, onOpenChange, title, description, conf
         <div className="space-y-2">
           <Label htmlFor="confirm-reason">Reason (kept in the audit trail)</Label>
           <Textarea id="confirm-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} autoFocus />
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
+          {!!error && (
+            <div role="alert" className="text-sm text-destructive">
+              {(error as Error).message}
+              <ErrorReference error={error} />
+            </div>
           )}
         </div>
         <AlertDialogFooter>

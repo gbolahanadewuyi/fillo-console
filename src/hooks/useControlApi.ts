@@ -56,12 +56,14 @@ export interface ControlStats {
   trialCompanies: number;
   suspendedCompanies: number;
   totalStations: number;
-  activeStations: number;
   totalUsers: number;
   activeUsers: number;
+  /** Orders created since midnight in Lagos. */
   ordersToday: number;
-  revenueToday: string;
-  revenue30d: { date: string; revenue: number }[];
+  /** Payments recorded since midnight in Lagos, before refunds (exact decimal string). */
+  paymentsToday: string;
+  /** The last 14 Lagos days, oldest first, a zero where nothing was paid. */
+  paymentsByDay: { date: string; payments: number }[];
   activeIntegrations: number;
   /** Connections whose own recorded events say they are failing or unreliable. */
   failedIntegrations: number;
