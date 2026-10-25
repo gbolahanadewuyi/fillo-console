@@ -196,7 +196,8 @@ describe("what the API returns is what is shown", () => {
     expect(screen.getByText("Something is failing")).toBeInTheDocument();
     expect(screen.queryByText("Real Gas Ltd is suspended")).not.toBeInTheDocument();
     expect(screen.getByText("1 connections, 1 failing")).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Needs attention", "Integrations", "Background jobs"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Needs attention", "Integrations"]);
+    expect(screen.getByRole("heading", { level: 3, name: "Background jobs" })).toBeInTheDocument(); // the jobs panel, once
   });
 
   it("the platform page says when nothing is wrong, and says so when it cannot load", async () => {

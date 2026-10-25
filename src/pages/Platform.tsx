@@ -68,10 +68,7 @@ export default function Platform() {
         </Card>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Background jobs</h2>
-        <JobsPanel />
-      </section>
+      <JobsPanel /> {/* has its own title */}
     </div>
   );
 }
