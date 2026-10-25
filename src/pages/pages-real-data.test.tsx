@@ -24,6 +24,7 @@ import AuditLogs from "./AuditLogs";
 import Integrations from "./Integrations";
 import FeatureFlags from "./FeatureFlags";
 import Plans from "./Plans";
+import Platform from "./Platform";
 
 function show(page: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -80,32 +81,45 @@ describe("what the API returns is what is shown", () => {
       return { data: [], page: 1, pageSize: 8, total: 0, totalPages: 1 };
     });
 
-  it("the dashboard lists what needs attention, with the reason, and links the company", async () => {
+  it("the dashboard lists customers that need a look, with the reason, and links the company", async () => {
     dashboardApi([
-      { id: "integration:w1", severity: "critical", kind: "integration", title: "whatsapp for Real Gas Ltd is failing", detail: "Meta answered 401", companyId: "c1" },
-      { id: "job:notify-sweep", severity: "warning", kind: "job", title: "notify-sweep has stopped running", detail: "It should run every 5 minutes." },
+      { id: "company:c1", severity: "critical", kind: "company_suspended", title: "Real Gas Ltd is suspended", detail: "Suspended: unpaid invoice", companyId: "c1" },
+      { id: "company:c2", severity: "warning", kind: "company_past_due", title: "Other Gas Ltd is past due", detail: "Billing is overdue", companyId: "c2" },
     ]);
     show(<Dashboard />);
-    expect(await screen.findByText("whatsapp for Real Gas Ltd is failing")).toBeInTheDocument();
-    expect(screen.getByText("Meta answered 401")).toBeInTheDocument();
-    expect(screen.getByText("notify-sweep has stopped running")).toBeInTheDocument();
+    expect(await screen.findByText("Real Gas Ltd is suspended")).toBeInTheDocument();
+    expect(screen.getByText("Suspended: unpaid invoice")).toBeInTheDocument();
+    expect(screen.getByText("Other Gas Ltd is past due")).toBeInTheDocument();
     expect(screen.getByText("Something is failing")).toBeInTheDocument();
-    expect(screen.getByText("whatsapp for Real Gas Ltd is failing").closest("a")).toHaveAttribute("href", "/companies/c1");
+    expect(screen.getByText("Real Gas Ltd is suspended").closest("a")).toHaveAttribute("href", "/companies/c1");
   });
 
-  it("an empty attention list says nothing is flagged, and counts zero", async () => {
+  it("the dashboard shows no technical problem at all: integrations, webhooks, jobs and stuck events stay off it", async () => {
+    dashboardApi([
+      { id: "integration:w1", severity: "critical", kind: "integration", title: "whatsapp for Real Gas Ltd is failing", detail: "Meta answered 401", companyId: "c1" },
+      { id: "webhooks:b", severity: "warning", kind: "rejected_webhooks", title: "1 rejected bachs webhook", detail: "bad signature" },
+      { id: "job:notify-sweep", severity: "warning", kind: "job", title: "notify-sweep has stopped running", detail: "It should run every 5 minutes." },
+      { id: "outbox", severity: "critical", kind: "outbox", title: "3 notification events are stuck", detail: "subscriber exploded" },
+    ]);
+    show(<Dashboard />);
+    expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
+    for (const tech of [/failing/i, /webhook/i, /sweep/i, /stuck/i, /Meta answered/]) expect(screen.queryByText(tech)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Integrations:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Platform health" })).not.toBeInTheDocument();
+  });
+
+  it("an empty attention list says nothing is flagged", async () => {
     dashboardApi([]);
     show(<Dashboard />);
     expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
     expect(screen.queryByText("Something is failing")).not.toBeInTheDocument();
   });
 
-  it("the dashboard answers three questions in order: what needs me, how is business, is the platform healthy", async () => {
+  it("the dashboard is the business: needs attention, then business numbers, and nothing about the platform", async () => {
     dashboardApi([]);
     show(<Dashboard />);
     await screen.findByText("Nothing is flagged.");
-    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Needs attention", "Business", "Platform health"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Needs attention", "Business"]);
   });
 
   it("business numbers say what they count, in naira and Lagos days", async () => {
@@ -115,7 +129,6 @@ describe("what the API returns is what is shown", () => {
     expect(screen.getByText("Recorded since midnight in Lagos")).toBeInTheDocument();
     expect(screen.getByText(/2,500/)).toBeInTheDocument(); // payments today
     expect(screen.getByText(/Payments recorded, last 14 days: .*3,500/)).toBeInTheDocument(); // 1,000 + 2,500
-    expect(screen.getByText("Integrations: 2 connected, 1 failing")).toBeInTheDocument();
   });
 
   it("a failed attention request says so instead of claiming all is well", async () => {
@@ -159,5 +172,45 @@ describe("what the API returns is what is shown", () => {
     show(<Integrations />);
     expect(await screen.findByText("Unknown")).toBeInTheDocument();
     expect(screen.queryByText("Healthy")).not.toBeInTheDocument();
+  });
+
+  it("the platform page shows the technical problems, and not the customers' business", async () => {
+    const items = [
+      { id: "company:c1", severity: "critical", kind: "company_suspended", title: "Real Gas Ltd is suspended", detail: "Suspended: unpaid invoice", companyId: "c1" },
+      { id: "integration:w1", severity: "critical", kind: "integration", title: "whatsapp for Real Gas Ltd is failing", detail: "Meta answered 401", companyId: "c1" },
+      { id: "job:notify-sweep", severity: "warning", kind: "job", title: "notify-sweep has stopped running", detail: "It should run every 5 minutes." },
+      { id: "outbox", severity: "critical", kind: "outbox", title: "3 notification events are stuck", detail: "subscriber exploded" },
+      { id: "webhooks:b", severity: "warning", kind: "rejected_webhooks", title: "1 rejected bachs webhook in the last 24 hours", detail: "bad signature" },
+    ];
+    apiRequest.mockImplementation(async (_m: string, path: string) => {
+      if (path.startsWith("/control/attention")) return { data: items };
+      if (path.startsWith("/control/jobs")) return { jobs: [], recentFailures: [], outbox: { pending: 0, stuck: 0, oldestAt: null, lastError: null } };
+      if (path.startsWith("/control/integrations")) return [{ id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "error", lastFailureAt: "2026-10-24T09:00:00Z", lastFailureDetail: "Meta answered 401" }];
+      return {};
+    });
+    show(<Platform />);
+    expect(await screen.findByText("whatsapp for Real Gas Ltd is failing")).toBeInTheDocument();
+    expect(screen.getByText("notify-sweep has stopped running")).toBeInTheDocument();
+    expect(screen.getByText("3 notification events are stuck")).toBeInTheDocument();
+    expect(screen.getByText(/1 rejected bachs webhook/)).toBeInTheDocument();
+    expect(screen.getByText("Something is failing")).toBeInTheDocument();
+    expect(screen.queryByText("Real Gas Ltd is suspended")).not.toBeInTheDocument();
+    expect(screen.getByText("1 connections, 1 failing")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Needs attention", "Integrations", "Background jobs"]);
+  });
+
+  it("the platform page says when nothing is wrong, and says so when it cannot load", async () => {
+    apiRequest.mockImplementation(async (_m: string, path: string) => {
+      if (path.startsWith("/control/attention")) return { data: [] };
+      if (path.startsWith("/control/jobs")) return { jobs: [], recentFailures: [], outbox: { pending: 0, stuck: 0, oldestAt: null, lastError: null } };
+      return [];
+    });
+    const first = show(<Platform />);
+    expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
+    first.unmount();
+    apiRequest.mockRejectedValue(new ApiError(500, "db is down"));
+    show(<Platform />);
+    expect((await screen.findAllByRole("alert")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Nothing is flagged.")).not.toBeInTheDocument();
   });
 });

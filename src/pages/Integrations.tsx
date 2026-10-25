@@ -1,6 +1,5 @@
 import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { JobsPanel } from "@/components/JobsPanel";
 
 export default function Integrations() {
   return (
@@ -18,7 +17,6 @@ export default function Integrations() {
           <IntegrationsTable />
         </CardContent>
       </Card>
-      <JobsPanel />
     </div>
   );
 }

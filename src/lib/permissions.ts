@@ -49,6 +49,7 @@ export type PageKey =
   | "orders"
   | "payments"
   | "stock"
+  | "platform"
   | "integrations"
   | "feature-flags"
   | "plans"
@@ -66,6 +67,7 @@ export const PAGE_PATHS: Record<PageKey, string> = {
   orders: "/orders",
   payments: "/payments",
   stock: "/stock",
+  platform: "/platform",
   integrations: "/integrations",
   "feature-flags": "/feature-flags",
   plans: "/plans",
@@ -87,6 +89,7 @@ const PAGE_ROLES: Record<PageKey, readonly PlatformRole[]> = {
   orders: EVERYONE,
   payments: EVERYONE,
   stock: EVERYONE,
+  platform: EVERYONE,
   integrations: EVERYONE,
   activity: EVERYONE,
   "audit-logs": EVERYONE,

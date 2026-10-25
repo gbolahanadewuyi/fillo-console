@@ -18,7 +18,8 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 
 | Page | What it does | Roles |
 |---|---|---|
-| Dashboard | Three sections in the order a person asks: Needs attention, Business (customers only, Lagos days: companies, stations, people, orders and payments today, 14-day payments, recent activity), Platform health (integrations) | all |
+| Dashboard | The business only: which customers need a look (suspended or overdue), then companies, stations, people, orders and payments today (customers only, Lagos days), 14-day payments, recent activity. No technical problem appears here | all |
+| Platform health | The technical side: failing integrations, rejected webhooks, stopped background jobs, stuck events, integration health, and the jobs panel with its retry | all read; retry stuck events: admin, owner |
 | Companies / Company | List, search, status filter. A company is a workspace: Overview, Stations, People (users and invitations), Integrations, Billing (plan, usage against limits, trial, features, provider ids for billing roles), Activity, Cases, Settings (branding); suspend and reactivate | all read; suspend, reactivate, branding: admin, owner |
 | Stations, Users | Cross-company lists with search. Users has People and Invitations tabs | all read; resend/revoke invitations: support, admin, owner |
 | User | Why one person can or cannot sign in (suspended company, locked subscription, locked login, no station, no login) and the fix: unlock, send reset email, reactivate, resend/revoke invitation, suspend | all read; support, admin, owner act; suspend: admin, owner |
@@ -26,7 +27,7 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 | Payments | POS transactions the providers reported; opens on the ones not matched to an order. The raw provider payload is never returned | all (read-only) |
 | Stock | The stock ledger (every movement, with the order behind it) | all (read-only) |
 | Cases / Case | Staff-only notes on a customer's problem: title, links to the company, person, order or transaction, timestamped notes, resolve and reopen. Customers never see them. Open one from a person or an order | all read; support, admin, owner write |
-| Integrations | WhatsApp and POS connections per company. WhatsApp health is *unknown* until delivery tracking exists | all |
+| Integrations | Every WhatsApp and POS connection with its real health. Health is *unknown* until a connection has done something | all |
 | Feature Flags | Each feature, where the API checks it, and the companies with their own setting; the owner sets or removes one from the company's Billing tab | owner, admin, support |
 | Plans & Billing | The real plans (price, station and people limits, features, how many companies are on each); edit one with a reason | all billing roles read; edit: owner, admin, finance |
 | Activity, Audit Logs | The activity ledger with search and an "action starts with" filter | all |
