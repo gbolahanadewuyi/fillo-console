@@ -15,7 +15,8 @@ export type Action =
   | "flag.update"
   | "outbox.retry"
   | "user.assist"
-  | "user.suspend";
+  | "user.suspend"
+  | "case.write";
 
 const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
 
@@ -30,6 +31,7 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "outbox.retry": ADMIN,
   "user.assist": SUPPORT,
   "user.suspend": ADMIN,
+  "case.write": SUPPORT,
 };
 
 export function can(role: PlatformRole | undefined, action: Action): boolean {
@@ -50,6 +52,7 @@ export type PageKey =
   | "settings"
   | "activity"
   | "audit-logs"
+  | "cases"
   | "support";
 
 export const PAGE_PATHS: Record<PageKey, string> = {
@@ -66,6 +69,7 @@ export const PAGE_PATHS: Record<PageKey, string> = {
   settings: "/settings",
   activity: "/activity",
   "audit-logs": "/audit-logs",
+  cases: "/cases",
   support: "/support",
 };
 
@@ -83,6 +87,7 @@ const PAGE_ROLES: Record<PageKey, readonly PlatformRole[]> = {
   integrations: EVERYONE,
   activity: EVERYONE,
   "audit-logs": EVERYONE,
+  cases: EVERYONE,
   support: EVERYONE,
   "feature-flags": ["platform_owner", "platform_admin", "platform_support"],
   plans: ["platform_owner", "platform_admin", "platform_finance"],

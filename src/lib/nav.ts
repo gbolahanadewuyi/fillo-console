@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Store, Plug, Flag, FileText, Activity, ScrollText, Search, Settings, ShoppingCart, CreditCard, Boxes, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Users, Store, Plug, Flag, FileText, Activity, ScrollText, Search, Settings, ShoppingCart, CreditCard, Boxes, LifeBuoy, type LucideIcon } from "lucide-react";
 import { PAGE_PATHS, type PageKey } from "@/lib/permissions";
 
 export interface NavItem {
@@ -24,7 +24,7 @@ export const NAV: NavGroup[] = [
     label: "Platform",
     items: [item("integrations", "Integrations", Plug), item("feature-flags", "Feature Flags", Flag), item("plans", "Plans & Billing", FileText), item("settings", "System Settings", Settings)],
   },
-  { label: "Support", items: [item("activity", "Activity", Activity), item("audit-logs", "Audit Logs", ScrollText), item("support", "Search", Search)] },
+  { label: "Support", items: [item("activity", "Activity", Activity), item("audit-logs", "Audit Logs", ScrollText), item("cases", "Cases", LifeBuoy), item("support", "Search", Search)] },
 ];
 
 /** The four destinations pinned to the mobile tab bar. */

@@ -1,5 +1,8 @@
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { can } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
 import { useControlOrder } from "@/hooks/useControlApi";
 import { naira, lagos, words } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +27,7 @@ const Back = () => (
 
 export default function OrderDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const { data: o, error, refetch } = useControlOrder(id);
 
   if (error) {
@@ -48,7 +52,12 @@ export default function OrderDetail() {
             {o.createdBy ? ` · ${o.createdBy}` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {can(user?.platformRole, "case.write") && (
+            <Button size="sm" variant="outline" asChild>
+              <Link to={`/cases?new=1&companyId=${o.companyId}&orderId=${o.id}`}>Open a case</Link>
+            </Button>
+          )}
           <StatusBadge status={o.status} />
           <StatusBadge status={o.paymentStatus} />
         </div>

@@ -466,6 +466,68 @@ export function useControlMovements(params: { page?: number; pageSize?: number; 
   });
 }
 
+export interface ControlCaseRow {
+  id: string;
+  title: string;
+  status: "OPEN" | "RESOLVED";
+  companyId: string;
+  companyName: string;
+  createdBy: string | null;
+  noteCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlCase {
+  id: string;
+  title: string;
+  status: "OPEN" | "RESOLVED";
+  companyId: string;
+  companyName: string;
+  user: { id: string; name: string | null; email: string | null } | null;
+  order: { id: string; orderNumber: number | null } | null;
+  posTransaction: { id: string; externalReference: string | null; provider: string | null } | null;
+  createdBy: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  notes: { id: string; author: string | null; body: string; createdAt: string }[];
+}
+
+export function useControlCases(params: { page?: number; pageSize?: number; companyId?: string; status?: string; search?: string } = {}) {
+  const { page = 1, pageSize = 20, ...rest } = params;
+  return useQuery({
+    queryKey: ["control", "cases", page, pageSize, rest],
+    queryFn: () => apiRequest<Paginated<ControlCaseRow>>("GET", `/control/cases?${listParams({ page, pageSize, ...rest })}`),
+  });
+}
+
+export function useControlCase(id: string | undefined) {
+  return useQuery({ queryKey: ["control", "case", id], queryFn: () => apiRequest<ControlCase>("GET", `/control/cases/${id}`), enabled: !!id });
+}
+
+export function useCreateCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId: string; title: string; userId?: string; orderId?: string; posTransactionId?: string; note?: string }) => apiRequest<ControlCase>("POST", "/control/cases", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control", "cases"] }),
+  });
+}
+
+/** Add a note, or resolve / reopen (the note is optional there). Each answers with the whole case. */
+export function useCaseAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, text }: { id: string; action: "note" | "resolve" | "reopen"; text?: string }) =>
+      apiRequest<ControlCase>("POST", `/control/cases/${id}/${action === "note" ? "notes" : action}`, action === "note" ? { body: text } : text ? { note: text } : {}),
+    onSuccess: (data) => {
+      qc.setQueryData(["control", "case", data.id], data);
+      void qc.invalidateQueries({ queryKey: ["control", "cases"] });
+    },
+  });
+}
+
 export function useRetryOutbox() {
   const qc = useQueryClient();
   return useMutation({

@@ -29,6 +29,8 @@ const statusMap: Record<string, { label: string; variant: Variant }> = {
   draft: { label: "Draft", variant: "muted" },
   successful: { label: "Successful", variant: "success" },
   reversed: { label: "Reversed", variant: "destructive" },
+  open: { label: "Open", variant: "warning" },
+  resolved: { label: "Resolved", variant: "success" },
   // generic
   pending: { label: "Pending", variant: "warning" },
   expired: { label: "Expired", variant: "destructive" },

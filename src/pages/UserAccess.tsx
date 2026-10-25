@@ -159,6 +159,7 @@ export default function UserAccess() {
             {suspend && !isStaffAccount && !user.isOwner && user.status === "active" && (
               <Button size="sm" variant="destructive" onClick={() => setPending({ kind: "user", action: "suspend" })}>Suspend</Button>
             )}
+            {assist && !isStaffAccount && <Button size="sm" variant="outline" asChild><Link to={`/cases?new=1&companyId=${user.companyId}&userId=${user.id}`}>Open a case</Link></Button>}
             {!assist && <p className="text-sm text-muted-foreground">Your role can look but not change.</p>}
           </CardContent>
         </Card>

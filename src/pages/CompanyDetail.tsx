@@ -11,6 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useUpdateCompanyBranding, useSuspendCompany } from "@/hooks/useControlApi";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
+import { IntegrationsTable } from "@/components/IntegrationsTable";
+import { CasesPanel } from "@/components/CasesPanel";
+import { InvitesPanel } from "@/components/InvitesPanel";
 import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
@@ -143,9 +146,11 @@ export default function CompanyDetail() {
         <TabsList className="flex w-full overflow-x-auto justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="stations">Stations</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
+          <TabsTrigger value="users">People</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="subscription">Billing</TabsTrigger>
+          <TabsTrigger value="cases">Cases</TabsTrigger>
+          <TabsTrigger value="branding">Settings</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -241,7 +246,6 @@ export default function CompanyDetail() {
           <Card>
             <CardHeader>
               <CardTitle>Users</CardTitle>
-              <CardDescription>Staff across {company.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {usersError && <QueryError error={usersError} what="users" />}
@@ -274,6 +278,31 @@ export default function CompanyDetail() {
                   )}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Invitations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InvitesPanel companyId={id} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <Card>
+            <CardContent className="pt-6">
+              <IntegrationsTable companyId={id} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cases">
+          <Card>
+            <CardContent className="pt-6">
+              <CasesPanel companyId={id} />
             </CardContent>
           </Card>
         </TabsContent>

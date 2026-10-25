@@ -125,8 +125,34 @@ describe("company page", () => {
     expect(await screen.findByText("Orders")).toHaveAttribute("href", "/orders?companyId=c1");
     expect(screen.getByText("Payments")).toHaveAttribute("href", "/payments?companyId=c1");
     expect(screen.getByText("Stock")).toHaveAttribute("href", "/stock?companyId=c1");
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Users" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Users" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "People" }));
+    fireEvent.click(screen.getByRole("tab", { name: "People" }));
     expect((await screen.findByText("Ada Attendant")).closest("a")).toHaveAttribute("href", "/users/u1");
+  });
+
+  it("is a workspace: its Integrations, Cases and invitations show only this company's, never another's", async () => {
+    apiRequest.mockImplementation(async (_m: string, path: string) => {
+      if (path === "/control/companies/c1") return { id: "c1", name: "Real Gas Ltd", status: "active", subscriptionStatus: "ACTIVE", createdAt: "2026-01-01T00:00:00Z", stationCount: 1, userCount: 1 };
+      if (path.startsWith("/control/integrations"))
+        return { data: [
+          { id: "i1", companyId: "c1", companyName: "Real Gas Ltd", provider: "whatsapp", status: "healthy" },
+          { id: "i2", companyId: "c2", companyName: "Other Gas Ltd", provider: "moniepoint", status: "error" },
+        ] };
+      return page([]);
+    });
+    show("/companies/c1", [["/companies/:id", <CompanyDetail />]]);
+    await screen.findByText("Orders");
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Integrations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+    expect(await screen.findByText("whatsapp")).toBeInTheDocument();
+    expect(screen.queryByText("moniepoint")).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Cases" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Cases" }));
+    await waitFor(() => expect(apiRequest.mock.calls.some(([, p]) => String(p).startsWith("/control/cases?") && String(p).includes("companyId=c1"))).toBe(true));
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "People" }));
+    fireEvent.click(screen.getByRole("tab", { name: "People" }));
+    await waitFor(() => expect(apiRequest.mock.calls.some(([, p]) => String(p).startsWith("/control/invites?") && String(p).includes("companyId=c1"))).toBe(true));
   });
 });

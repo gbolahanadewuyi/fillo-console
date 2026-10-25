@@ -17,12 +17,13 @@ Its API is the `/v1/control/*` part of `EOP-API` (`functions/src/routes/control-
 | Page | What it does | Roles |
 |---|---|---|
 | Dashboard | Platform counts, payments recorded (14 days), recent activity, integration health | all |
-| Companies / Company | List, search, status filter; one company's stations, users, activity, branding; suspend and reactivate | all read; suspend, reactivate, branding: admin, owner |
+| Companies / Company | List, search, status filter. A company is a workspace: Overview, Stations, People (users and invitations), Integrations, Billing, Activity, Cases, Settings (branding); suspend and reactivate | all read; suspend, reactivate, branding: admin, owner |
 | Stations, Users | Cross-company lists with search. Users has People and Invitations tabs | all read; resend/revoke invitations: support, admin, owner |
 | User | Why one person can or cannot sign in (suspended company, locked subscription, locked login, no station, no login) and the fix: unlock, send reset email, reactivate, resend/revoke invitation, suspend | all read; support, admin, owner act; suspend: admin, owner |
 | Orders / Order | Every company's orders (filter by status, payment, number, customer); one order shows money paid, refunded and still owed, items, payments with their POS match, stock moved, the WhatsApp message it came from, and its timeline | all (read-only) |
 | Payments | POS transactions the providers reported; opens on the ones not matched to an order. The raw provider payload is never returned | all (read-only) |
 | Stock | The stock ledger (every movement, with the order behind it) | all (read-only) |
+| Cases / Case | Staff-only notes on a customer's problem: title, links to the company, person, order or transaction, timestamped notes, resolve and reopen. Customers never see them. Open one from a person or an order | all read; support, admin, owner write |
 | Integrations | WhatsApp and POS connections per company. WhatsApp health is *unknown* until delivery tracking exists | all |
 | Feature Flags | Catalogue and per-company overrides (read-only here; no part of the apps reads them yet) | owner, admin, support |
 | Plans & Billing | Reference list of plans (not linked to companies yet) | owner, admin, finance |
@@ -79,4 +80,4 @@ Built and deployed on Coolify like the other Fillo apps; see `EOP-API/docs/INFRA
 
 ## What is not here yet
 
-Recorded in the backlog (GitHub issues in `gbolahanadewuyi/fillo`, console audit): support case notes; staff management and two-factor sign-in.
+Recorded in the backlog (GitHub issues in `gbolahanadewuyi/fillo`, console audit): staff management and two-factor sign-in.

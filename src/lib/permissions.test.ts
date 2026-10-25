@@ -17,6 +17,9 @@ describe("can (mirrors the API role matrix)", () => {
     expect(roles.filter((r) => can(r, "user.assist"))).toEqual(["platform_owner", "platform_admin", "platform_support"]);
     expect(roles.filter((r) => can(r, "user.suspend"))).toEqual(["platform_owner", "platform_admin"]);
   });
+  it("support may keep case notes; finance may only read them", () => {
+    expect(roles.filter((r) => can(r, "case.write"))).toEqual(["platform_owner", "platform_admin", "platform_support"]);
+  });
   it("only the owner may change feature flags", () => {
     expect(roles.filter((r) => can(r, "flag.update"))).toEqual(["platform_owner"]);
   });
@@ -28,7 +31,7 @@ describe("can (mirrors the API role matrix)", () => {
 
 describe("canViewPage", () => {
   it("every role sees the pages used to investigate", () => {
-    for (const r of roles) for (const p of ["dashboard", "companies", "users", "orders", "payments", "stock", "integrations", "audit-logs", "support"] as PageKey[]) expect(canViewPage(r, p)).toBe(true);
+    for (const r of roles) for (const p of ["dashboard", "companies", "users", "orders", "payments", "stock", "cases", "integrations", "audit-logs", "support"] as PageKey[]) expect(canViewPage(r, p)).toBe(true);
   });
   it("finance sees plans and billing but not platform internals (it used to see all of them)", () => {
     expect(canViewPage("platform_finance", "plans")).toBe(true);

@@ -16,13 +16,13 @@ import { QueryError } from "@/components/QueryError";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 
 /** Invitations across all companies: who was invited, whether it is still good, and the two things support can do. */
-export function InvitesPanel() {
+export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
   const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [pending, setPending] = useState<{ invite: ControlInvite; action: "resend" | "revoke" } | null>(null);
-  const { data, error, refetch } = useControlInvites({ page, pageSize: 20, search: useDebouncedValue(search.trim()), status: status === "all" ? "" : status.toUpperCase() });
+  const { data, error, refetch } = useControlInvites({ page, pageSize: 20, companyId, search: useDebouncedValue(search.trim()), status: status === "all" ? "" : status.toUpperCase() });
   const act = useInviteAction();
   const { toast } = useToast();
   const assist = can(user?.platformRole, "user.assist");
@@ -58,7 +58,7 @@ export function InvitesPanel() {
         <TableHeader>
           <TableRow>
             <TableHead>Invited</TableHead>
-            <TableHead>Company</TableHead>
+            {!companyId && <TableHead>Company</TableHead>}
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Expires</TableHead>
@@ -69,9 +69,11 @@ export function InvitesPanel() {
           {(data?.data ?? []).map((i) => (
             <TableRow key={i.id}>
               <TableCell className="font-medium">{i.email}</TableCell>
-              <TableCell>
-                <Link to={`/companies/${i.companyId}`} className="text-primary hover:underline text-sm">{i.companyName}</Link>
-              </TableCell>
+              {!companyId && (
+                <TableCell>
+                  <Link to={`/companies/${i.companyId}`} className="text-primary hover:underline text-sm">{i.companyName}</Link>
+                </TableCell>
+              )}
               <TableCell className="text-sm">{i.roleName}</TableCell>
               <TableCell><StatusBadge status={i.status} /></TableCell>
               <TableCell className="text-sm text-muted-foreground">{new Date(i.expiresAt).toLocaleDateString()}</TableCell>
@@ -87,7 +89,7 @@ export function InvitesPanel() {
           ))}
           {!error && (data?.data?.length ?? 0) === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No invitations.</TableCell>
+              <TableCell colSpan={companyId ? 5 : 6} className="text-center py-6 text-muted-foreground">No invitations.</TableCell>
             </TableRow>
           )}
         </TableBody>
