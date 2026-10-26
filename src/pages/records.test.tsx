@@ -117,6 +117,39 @@ describe("payments and stock", () => {
 });
 
 describe("company page", () => {
+  const gas = (over: object = {}) => ({ id: "c1", name: "Real Gas Ltd", status: "active", subscriptionStatus: "ACTIVE", createdAt: "2026-01-01T00:00:00Z", stationCount: 1, userCount: 1, ...over });
+
+  it("an admin can mark a company as a test company with a reason; support cannot see the control", async () => {
+    role = "platform_admin";
+    apiRequest.mockImplementation(async (m: string, path: string) => (m === "PATCH" ? { ok: true } : path === "/control/companies/c1" ? gas() : page([])));
+    show("/companies/c1", [["/companies/:id", <CompanyDetail />]]);
+    fireEvent.click(await screen.findByRole("button", { name: "Mark as a test company" }));
+    const confirm = await screen.findByRole("button", { name: "Mark as test" });
+    expect(confirm).toBeDisabled(); // a reason is needed
+    fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: "used for demos" } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/test", { isTest: true, reason: "used for demos" }));
+  });
+
+  it("a test company is badged, and can be put back with a reason", async () => {
+    role = "platform_admin";
+    apiRequest.mockImplementation(async (m: string, path: string) => (m === "PATCH" ? { ok: true } : path === "/control/companies/c1" ? gas({ isTest: true }) : page([])));
+    show("/companies/c1", [["/companies/:id", <CompanyDetail />]]);
+    expect(await screen.findByText("Test")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mark as a real company" }));
+    fireEvent.change(await screen.findByLabelText(/reason/i), { target: { value: "real customer after all" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark as real" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/test", { isTest: false, reason: "real customer after all" }));
+  });
+
+  it("support does not get the control", async () => {
+    role = "platform_support";
+    apiRequest.mockImplementation(async (_m: string, path: string) => (path === "/control/companies/c1" ? gas() : page([])));
+    show("/companies/c1", [["/companies/:id", <CompanyDetail />]]);
+    await screen.findByText("Orders");
+    expect(screen.queryByRole("button", { name: /test company|real company/ })).not.toBeInTheDocument();
+  });
+
   it("links to that company's records, and its Users tab links each person to their access page", async () => {
     apiRequest.mockImplementation(async (_m: string, path: string) => {
       if (path === "/control/companies/c1") return { id: "c1", name: "Real Gas Ltd", status: "active", subscriptionStatus: "ACTIVE", createdAt: "2026-01-01T00:00:00Z", stationCount: 1, userCount: 1 };

@@ -16,6 +16,7 @@ const COLUMNS: Column<ControlCompany>[] = [
         <Link to={`/companies/${c.id}`} className="font-medium hover:underline">
           {c.name}
         </Link>
+        {c.isTest && <span className="ml-2 rounded border px-1.5 py-0.5 text-xs text-muted-foreground">Test</span>}
         {c.industry && <div className="text-xs text-muted-foreground">{c.industry}</div>}
       </>
     ),

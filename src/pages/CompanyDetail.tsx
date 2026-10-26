@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { FieldError } from "@/components/FieldError";
-import { useUpdateCompanyBranding, useSuspendCompany } from "@/hooks/useControlApi";
+import { useUpdateCompanyBranding, useSuspendCompany, useSetCompanyTest } from "@/hooks/useControlApi";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { BillingPanel } from "@/components/BillingPanel";
@@ -96,7 +96,8 @@ export default function CompanyDetail() {
   const { user } = useAuth();
   const suspendMut = useSuspendCompany();
   const unsuspendMut = useUnsuspendCompany();
-  const [confirm, setConfirm] = useState<"suspend" | "unsuspend" | null>(null);
+  const testMut = useSetCompanyTest();
+  const [confirm, setConfirm] = useState<"suspend" | "unsuspend" | "test" | null>(null);
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
   if (error || !company) return <QueryError error={error ?? new Error("Company not found")} onRetry={() => void refetch()} what="this company" />;
@@ -106,7 +107,10 @@ export default function CompanyDetail() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{company.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {company.name}
+            {company.isTest && <span className="ml-2 rounded border px-1.5 py-0.5 align-middle text-xs font-medium text-muted-foreground">Test</span>}
+          </h1>
           <p className="text-sm text-muted-foreground">
             {company.industry ?? "—"} • <StatusBadge status={company.status} className="ml-1" /> • {company.subscriptionStatus} • Created {new Date(company.createdAt).toLocaleDateString()}
           </p>
@@ -124,6 +128,11 @@ export default function CompanyDetail() {
             </Link>
           ))}
         </div>
+        {can(user?.platformRole, "company.test") && (
+          <Button variant="outline" size="sm" onClick={() => setConfirm("test")}>
+            {company.isTest ? "Mark as a real company" : "Mark as a test company"}
+          </Button>
+        )}
         {suspended
           ? can(user?.platformRole, "company.unsuspend") && (
               <Button size="sm" onClick={() => setConfirm("unsuspend")}>
@@ -135,6 +144,17 @@ export default function CompanyDetail() {
                 Suspend company
               </Button>
             )}
+        <ConfirmWithReason
+          open={confirm === "test"}
+          onOpenChange={(o) => !o && setConfirm(null)}
+          title={company.isTest ? `Treat ${company.name} as a real company?` : `Treat ${company.name} as a test company?`}
+          description={company.isTest ? "Its orders and problems count on the dashboard again." : "It is left out of the dashboard's numbers and attention list unless you include test companies. Nothing about the company changes."}
+          confirmLabel={company.isTest ? "Mark as real" : "Mark as test"}
+          onConfirm={async (reason) => {
+            await testMut.mutateAsync({ id: id!, isTest: !company.isTest, reason });
+            toast({ title: company.isTest ? "Marked as a real company" : "Marked as a test company" });
+          }}
+        />
         <ConfirmWithReason
           open={confirm === "suspend"}
           onOpenChange={(o) => !o && setConfirm(null)}
