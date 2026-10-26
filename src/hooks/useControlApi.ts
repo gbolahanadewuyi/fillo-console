@@ -185,8 +185,11 @@ export function useControlStats() {
 
 /** The dashboard's numbers (see getControlOverview in the API for each definition). */
 export interface ControlOverview {
-  organisations: { total: number; active: number; trialing: number; pastDue: number; suspended: number; stations: number; users: number; testExcluded: number };
+  /** Each organisation counted once (suspended, cancelled, past due, trial, active, in that order), so the parts add up to the total. */
+  organisations: { total: number; active: number; trialing: number; pastDue: number; suspended: number; cancelled: number; stations: number; users: number; testExcluded: number };
   adoption: { active7d: number; newThisWeek: number; newLastWeek: number; atRisk: number };
+  /** Active users of customers, and those whose account signed in during the last 7 days (Fillo's own staff are not counted). */
+  people: { active: number; signedIn7d: number; addedThisWeek: number };
   usage: {
     /** The last 14 Lagos days, oldest first. Payments are what companies recorded, before refunds. */
     days: { date: string; orders: number; payments: number }[];
@@ -195,6 +198,11 @@ export interface ControlOverview {
     payments7d: number;
     paymentsPrev7d: number;
     whatsappOrders7d: number;
+    /** Completed now and last changed in the window (an order has no completion time of its own). */
+    ordersCompleted7d: number;
+    ordersCompletedPrev7d: number;
+    deliveriesCompleted7d: number;
+    deliveriesCompletedPrev7d: number;
   };
   platform: {
     api: "ok";

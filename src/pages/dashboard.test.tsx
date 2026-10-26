@@ -17,9 +17,10 @@ import Dashboard from "./Dashboard";
 
 const days = (orders: number, payments: number) => Array.from({ length: 14 }, (_, i) => ({ date: `2030-01-${String(i + 3).padStart(2, "0")}`, orders: i === 13 ? orders : 0, payments: i === 13 ? payments : 0 }));
 const overview = (over: Record<string, unknown> = {}) => ({
-  organisations: { total: 3, active: 2, trialing: 1, pastDue: 0, suspended: 0, stations: 4, users: 14, testExcluded: 1 },
+  organisations: { total: 3, active: 2, trialing: 1, pastDue: 0, suspended: 0, cancelled: 0, stations: 4, users: 14, testExcluded: 1 },
   adoption: { active7d: 2, newThisWeek: 1, newLastWeek: 0, atRisk: 1 },
-  usage: { days: days(5, 12000), orders7d: 5, ordersPrev7d: 3, payments7d: 12000, paymentsPrev7d: 12000, whatsappOrders7d: 2 },
+  people: { active: 14, signedIn7d: 9, addedThisWeek: 2 },
+  usage: { days: days(5, 12000), orders7d: 5, ordersPrev7d: 3, payments7d: 12000, paymentsPrev7d: 12000, whatsappOrders7d: 2, ordersCompleted7d: 4, ordersCompletedPrev7d: 6, deliveriesCompleted7d: 3, deliveriesCompletedPrev7d: 3 },
   platform: { api: "ok", database: "ok", jobs: { total: 6, failing: 0, stale: 0 }, integrations: { total: 2, failing: 0, unknown: 0 }, outbox: { stuck: 0 } },
   ...over,
 });
@@ -106,20 +107,50 @@ describe("adoption and usage", () => {
     expect(screen.getByRole("link", { name: "1 on trial" })).toHaveAttribute("href", "/companies?status=trial");
     expect(screen.getByRole("link", { name: "0 suspended" })).toHaveAttribute("href", "/companies?status=suspended");
     expect(screen.getByRole("link", { name: "4 stations" })).toHaveAttribute("href", "/stations");
+    expect(screen.getByRole("link", { name: "1 new this week" })).toHaveAttribute("href", "/companies?sort=createdAt:desc");
+  });
+
+  it("People is a summary card: active people, how many signed in this week, how many were added", async () => {
+    api();
+    show();
+    const card = (await screen.findByText("People")).closest("a")!;
+    expect(card).toHaveAttribute("href", "/users");
+    expect(card).toHaveTextContent("14");
+    expect(card).toHaveTextContent("9 signed in this week · 2 added");
+  });
+
+  it("orders placed, orders completed and deliveries completed are summary cards, each against the 7 days before", async () => {
+    api();
+    show();
+    const placed = (await screen.findByText("Orders placed")).closest("a")!;
+    expect(placed).toHaveTextContent("5");
+    expect(placed).toHaveTextContent("+2 on the 7 days before");
+    const completed = screen.getByText("Orders completed").closest("a")!;
+    expect(completed).toHaveTextContent("4");
+    expect(completed).toHaveTextContent("−2 on the 7 days before");
+    const delivered = screen.getByText("Deliveries completed").closest("a")!;
+    expect(delivered).toHaveTextContent("3");
+    expect(delivered).toHaveTextContent("same as the 7 days before");
+  });
+
+  it("a cancelled organisation is shown, and is not counted as one that could be active", async () => {
+    api(overview({ organisations: { total: 4, active: 2, trialing: 1, pastDue: 0, suspended: 0, cancelled: 1, stations: 4, users: 14, testExcluded: 0 } }));
+    show();
+    expect(await screen.findByRole("link", { name: "1 cancelled" })).toHaveAttribute("href", "/companies?status=canceled");
+    expect(screen.getByText("2 of 3")).toBeInTheDocument(); // 4 organisations, 1 cancelled
   });
 
   it("usage says what it counts: companies' own records, not Fillo's revenue, against the 7 days before", async () => {
     api();
     show();
     expect(await screen.findByText(/not Fillo's revenue/)).toBeInTheDocument();
-    expect(screen.getByText(/\+2 on the 7 days before/)).toBeInTheDocument();
-    expect(screen.getByText(/same as the 7 days before/)).toBeInTheDocument();
-    expect(screen.getByText(/orders came through WhatsApp/)).toBeInTheDocument();
+    expect(screen.getByText(/came through WhatsApp/)).toHaveTextContent("2 of the orders");
+    expect(screen.getByText("Payments recorded").closest("a")).toHaveTextContent("same as the 7 days before");
     expect(screen.getByTestId("bars")).toHaveTextContent("14 bars");
   });
 
   it("with nothing in 14 days it says so instead of drawing an empty chart", async () => {
-    api(overview({ usage: { days: days(0, 0), orders7d: 0, ordersPrev7d: 0, payments7d: 0, paymentsPrev7d: 0, whatsappOrders7d: 0 } }));
+    api(overview({ usage: { days: days(0, 0), orders7d: 0, ordersPrev7d: 0, payments7d: 0, paymentsPrev7d: 0, whatsappOrders7d: 0, ordersCompleted7d: 0, ordersCompletedPrev7d: 0, deliveriesCompleted7d: 0, deliveriesCompletedPrev7d: 0 } }));
     show();
     expect(await screen.findByText("No orders or payments in the last 14 days.")).toBeInTheDocument();
     expect(screen.queryByTestId("bars")).not.toBeInTheDocument();

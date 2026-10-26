@@ -77,7 +77,7 @@ function Stat({ to, label, value, children }: { to: string; label: string; value
 const change = (now: number, before: number) => (now === before ? "same as the 7 days before" : `${now > before ? "+" : "−"}${Math.abs(now - before)} on the 7 days before`);
 
 function Adoption({ o }: { o: ControlOverview }) {
-  const { organisations: org, adoption } = o;
+  const { organisations: org, adoption, people } = o;
   const part = (n: number, label: string, status: string) => (
     <Link key={status} to={`/companies?status=${status}`} className="hover:underline">
       {n} {label}
@@ -98,17 +98,18 @@ function Adoption({ o }: { o: ControlOverview }) {
             {part(org.trialing, "on trial", "trial")}
             {part(org.pastDue, "past due", "past_due")}
             {part(org.suspended, "suspended", "suspended")}
+            {org.cancelled > 0 && part(org.cancelled, "cancelled", "canceled")}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            <Link to="/stations" className="hover:underline">{org.stations} stations</Link> · <Link to="/users" className="hover:underline">{org.users} people</Link>
+            <Link to="/companies?sort=createdAt:desc" className="hover:underline">{adoption.newThisWeek} new this week</Link> · <Link to="/stations" className="hover:underline">{org.stations} stations</Link>
           </div>
         </CardContent>
       </Card>
-      <Stat to="/orders" label="Active organisations" value={`${adoption.active7d} of ${org.total}`}>
+      <Stat to="/orders" label="Active organisations" value={`${adoption.active7d} of ${org.total - org.cancelled}`}>
         Placed an order in the last 7 days
       </Stat>
-      <Stat to="/companies?sort=createdAt:desc" label="New organisations" value={adoption.newThisWeek}>
-        This week, {adoption.newLastWeek} the week before
+      <Stat to="/users" label="People" value={people.active}>
+        {people.signedIn7d} signed in this week · {people.addedThisWeek} added
       </Stat>
       <Stat to="/companies" label="At risk" value={adoption.atRisk}>
         No order in 14 days
@@ -121,50 +122,57 @@ function Usage({ usage }: { usage: ControlOverview["usage"] }) {
   const [metric, setMetric] = useState<"orders" | "payments">("orders");
   const empty = usage.days.every((d) => d.orders === 0 && d.payments === 0);
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-sm">Last 14 days</CardTitle>
-            <CardDescription>What companies recorded in their own books, not Fillo&apos;s revenue. Lagos days.</CardDescription>
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat to="/orders" label="Orders placed" value={usage.orders7d}>
+          Last 7 days, {change(usage.orders7d, usage.ordersPrev7d)}
+        </Stat>
+        <Stat to="/orders" label="Orders completed" value={usage.ordersCompleted7d}>
+          Last 7 days, {change(usage.ordersCompleted7d, usage.ordersCompletedPrev7d)}
+        </Stat>
+        <Stat to="/orders" label="Deliveries completed" value={usage.deliveriesCompleted7d}>
+          Last 7 days, {change(usage.deliveriesCompleted7d, usage.deliveriesCompletedPrev7d)}
+        </Stat>
+        <Stat to="/payments" label="Payments recorded" value={naira(usage.payments7d)}>
+          Last 7 days, {change(usage.payments7d, usage.paymentsPrev7d)}
+        </Stat>
+      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm">Last 14 days</CardTitle>
+              <CardDescription>
+                What companies recorded in their own books, not Fillo&apos;s revenue. Lagos days. {usage.whatsappOrders7d} of the orders in the last 7 days came through WhatsApp.
+              </CardDescription>
+            </div>
+            <div className="flex gap-1" role="group" aria-label="Chart metric">
+              <Button size="sm" variant={metric === "orders" ? "default" : "outline"} aria-pressed={metric === "orders"} onClick={() => setMetric("orders")}>
+                Orders
+              </Button>
+              <Button size="sm" variant={metric === "payments" ? "default" : "outline"} aria-pressed={metric === "payments"} onClick={() => setMetric("payments")}>
+                Payments
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-1" role="group" aria-label="Chart metric">
-            <Button size="sm" variant={metric === "orders" ? "default" : "outline"} aria-pressed={metric === "orders"} onClick={() => setMetric("orders")}>
-              Orders
-            </Button>
-            <Button size="sm" variant={metric === "payments" ? "default" : "outline"} aria-pressed={metric === "payments"} onClick={() => setMetric("payments")}>
-              Payments
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 pt-2 text-sm">
-          <Link to="/orders" className="hover:underline">
-            <span className="font-semibold">{usage.orders7d}</span> orders in 7 days <span className="text-muted-foreground">({change(usage.orders7d, usage.ordersPrev7d)})</span>
-          </Link>
-          <Link to="/payments" className="hover:underline">
-            <span className="font-semibold">{naira(usage.payments7d)}</span> recorded <span className="text-muted-foreground">({change(usage.payments7d, usage.paymentsPrev7d)})</span>
-          </Link>
-          <span>
-            <span className="font-semibold">{usage.whatsappOrders7d}</span> <span className="text-muted-foreground">orders came through WhatsApp</span>
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="h-[220px]">
-        {empty ? (
-          <p className="text-sm text-muted-foreground">No orders or payments in the last 14 days.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={usage.days}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} tickFormatter={(v: number) => (metric === "payments" ? `₦${(v / 1000).toFixed(0)}k` : String(v))} />
-              <Tooltip formatter={(v: number) => [metric === "payments" ? naira(v) : v, metric === "payments" ? "Payments" : "Orders"]} />
-              <Bar dataKey={metric} fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="h-[220px]">
+          {empty ? (
+            <p className="text-sm text-muted-foreground">No orders or payments in the last 14 days.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={usage.days}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} tickFormatter={(v: number) => (metric === "payments" ? `₦${(v / 1000).toFixed(0)}k` : String(v))} />
+                <Tooltip formatter={(v: number) => [metric === "payments" ? naira(v) : v, metric === "payments" ? "Payments" : "Orders"]} />
+                <Bar dataKey={metric} fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
