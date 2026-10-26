@@ -124,6 +124,11 @@ export interface FeatureFlag {
   enabledDefault: boolean;
   /** Where the API actually checks this feature. Empty: nothing reads it yet. */
   enforcedAt: string[];
+  /** A gated feature starts not launched: off for companies with no plan until the owner launches it. */
+  gated: boolean;
+  launched: boolean;
+  /** Every plan, and whether it includes this feature. */
+  plans: { id: string; name: string; isActive: boolean; included: boolean }[];
   overrides: { scopeType: "platform" | "company" | "station"; scopeId: string; scopeLabel?: string; enabled: boolean }[];
 }
 
@@ -142,7 +147,7 @@ export interface Plan {
   createdAt: string;
 }
 
-export type FeatureSource = "override" | "plan" | "unrestricted";
+export type FeatureSource = "override" | "plan" | "unrestricted" | "not_launched";
 
 export interface CompanyBilling {
   subscriptionStatus: string;
@@ -644,6 +649,14 @@ export function useRetryOutbox() {
 }
 
 /** `enabled: null` removes the company's override, so it follows its plan again. */
+export function useSetFeatureLaunched() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, launched, reason }: { key: string; launched: boolean; reason: string }) => apiRequest("PUT", `/control/feature-flags/${key}/launch`, { launched, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
 export function useUpdateFeatureFlag() {
   const qc = useQueryClient();
   return useMutation({

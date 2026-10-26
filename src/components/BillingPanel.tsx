@@ -13,7 +13,7 @@ import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { ExtendTrialDialog } from "@/components/ExtendTrialDialog";
 
 const NO_PLAN = "none";
-const SOURCE = { override: "Set for this company", plan: "From the plan", unrestricted: "No plan: unrestricted" } as const;
+const SOURCE = { override: "Set for this company", plan: "From the plan", unrestricted: "No plan: unrestricted", not_launched: "Not launched yet" } as const;
 
 const usage = (label: string, u: { used: number; limit: number | null }) => (
   <div className="flex items-center justify-between text-sm">
