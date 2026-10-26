@@ -70,6 +70,19 @@ describe("cases list", () => {
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/cases", { companyId: "c1", title: "Missing payment", userId: undefined, orderId: "o1", posTransactionId: undefined, note: undefined }));
   });
 
+  it("opening a case from an order says which order it is about, so the link is visible", async () => {
+    apiRequest.mockImplementation(async (_m: string, path: string) => (path === "/control/orders/o1" ? { id: "o1", orderNumber: 4021 } : page([])));
+    show("/cases?new=1&companyId=c1&orderId=o1");
+    expect(await screen.findByText(/About order #4021\. It is linked automatically\./)).toBeInTheDocument();
+  });
+
+  it("a case opened with no order, person or payment says nothing about a link", async () => {
+    apiRequest.mockResolvedValue(page([]));
+    show("/cases?new=1&companyId=c1");
+    await screen.findByLabelText("Title");
+    expect(screen.queryByText(/linked automatically/)).not.toBeInTheDocument();
+  });
+
   it("a title that is too short, or no company, is refused next to the field and nothing is sent", async () => {
     apiRequest.mockResolvedValue(page([]));
     show("/cases?new=1");

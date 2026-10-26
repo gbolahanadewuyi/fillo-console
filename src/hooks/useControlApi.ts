@@ -459,12 +459,15 @@ export interface ControlOrder {
   createdAt: string;
   invoice: { invoiceNumber: number; createdAt: string } | null;
   intake: { id: string; channel: string; source: string; customerPhone: string | null; messageText: string; status: string; createdAt: string } | null;
-  deliveries: { id: string; status: string; createdAt: string }[];
+  deliveries: { id: string; status: string; createdAt: string; assignedAt: string | null; completedAt: string | null; riderName: string | null }[];
+  /** Support cases opened about this order, open ones first. */
+  cases: { id: string; title: string; status: "OPEN" | "RESOLVED"; createdAt: string }[];
   lines: { id: string; productName: string; quantity: string; unit: string; unitPrice: string; lineTotal: string }[];
   payments: { id: string; amount: string; method: string; reference: string | null; paidAt: string; recordedBy: string | null; pos: { id: string; provider: string; externalReference: string } | null }[];
   refunds: { id: string; amount: string; method: string; reason: string | null; createdAt: string }[];
   movements: { id: string; productName: string; quantity: string; type: string; createdAt: string }[];
-  timeline: { id: string; action: string; actorName: string | null; createdAt: string }[];
+  /** `status` is what a status change was to; `note` is a cancellation's reason. */
+  timeline: { id: string; action: string; actorName: string | null; createdAt: string; status: string | null; note: string | null }[];
 }
 
 export interface ControlPosTransaction {
@@ -555,7 +558,7 @@ export interface ControlCase {
   notes: { id: string; author: string | null; body: string; createdAt: string }[];
 }
 
-export function useControlCases(params: { page?: number; pageSize?: number; companyId?: string; status?: string; search?: string; sort?: string } = {}) {
+export function useControlCases(params: { page?: number; pageSize?: number; companyId?: string; orderId?: string; status?: string; search?: string; sort?: string } = {}) {
   const { page = 1, pageSize = 20, ...rest } = params;
   return useQuery({
     queryKey: ["control", "cases", page, pageSize, rest],

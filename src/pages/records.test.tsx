@@ -34,12 +34,17 @@ const order = {
   status: "AWAITING_PAYMENT", paymentStatus: "PARTIALLY_PAID", subtotal: "1000", discount: "0", vatAmount: "0", total: "1000", paidTotal: "600", refundedTotal: "100", balanceDue: "500",
   notes: null, deletedAt: null, createdBy: "Ada", createdAt: "2026-10-20T10:00:00Z", invoice: null,
   intake: { id: "i1", channel: "WHATSAPP", source: "WEBHOOK", customerPhone: "0803", messageText: "Please send 10kg gas", status: "CONVERTED", createdAt: "2026-10-20T09:59:00Z" },
-  deliveries: [],
+  deliveries: [{ id: "d1", status: "DELIVERED", createdAt: "2026-10-20T10:00:00Z", assignedAt: "2026-10-20T10:30:00Z", completedAt: "2026-10-20T12:10:00Z", riderName: "Ibrahim" }],
+  cases: [{ id: "k9", title: "Customer disputes the amount", status: "OPEN", createdAt: "2026-10-21T09:00:00Z" }],
   lines: [{ id: "l1", productName: "Cooking gas", quantity: "10", unit: "KG", unitPrice: "100", lineTotal: "1000" }],
   payments: [{ id: "p1", amount: "600", method: "POS", reference: "REF-1", paidAt: "2026-10-20T10:05:00Z", recordedBy: "Ada", pos: { id: "t1", provider: "MONIEPOINT", externalReference: "T-9" } }],
   refunds: [{ id: "r1", amount: "100", method: "CASH", reason: "wrong size", createdAt: "2026-10-20T11:00:00Z" }],
   movements: [{ id: "m1", productName: "Cooking gas", quantity: "-10", type: "SALE", createdAt: "2026-10-20T10:00:00Z" }],
-  timeline: [{ id: "a1", action: "order.created", actorName: "Ada", createdAt: "2026-10-20T10:00:00Z" }],
+  timeline: [
+    { id: "a1", action: "order.created", actorName: "Ada", createdAt: "2026-10-20T10:00:00Z", status: null, note: null },
+    { id: "a2", action: "order.status_changed", actorName: "Ada", createdAt: "2026-10-20T10:20:00Z", status: "PREPARING", note: null },
+    { id: "a3", action: "order.status_changed", actorName: "Chidi", createdAt: "2026-10-20T12:15:00Z", status: "COMPLETED", note: null },
+  ],
 };
 
 beforeEach(() => {
@@ -76,10 +81,30 @@ describe("orders", () => {
     expect(await screen.findByText("Order #4021")).toBeInTheDocument();
     expect(screen.getByText("Still owed").nextSibling).toHaveTextContent(/500/);
     expect(screen.getByText(/matched to Moniepoint T-9/)).toBeInTheDocument();
-    expect(screen.getByText(/wrong size/)).toBeInTheDocument();
+    expect(screen.getAllByText(/wrong size/).length).toBeGreaterThan(0); // in the refunds list and in the timeline
     expect(screen.getByText("Please send 10kg gas")).toBeInTheDocument();
-    expect(screen.getByText("order.created")).toBeInTheDocument();
+    // the timeline says what happened, not the event codes
+    expect(screen.queryByText("order.created")).not.toBeInTheDocument();
+    expect(screen.getByText("Being prepared")).toBeInTheDocument();
+    expect(screen.getByText("Assigned to Ibrahim")).toBeInTheDocument();
+    expect(screen.getByText("Delivered")).toBeInTheDocument();
+    expect(screen.getByText(/Placed to delivered: 2 h 10 min/)).toBeInTheDocument();
     expect(screen.getByText("Sale · 20 Oct 2026, 11:00 am".slice(0, 4), { exact: false })).toBeInTheDocument();
+  });
+
+  it("lists the cases already opened about the order, each a link, so the same problem is not opened twice", async () => {
+    apiRequest.mockResolvedValue(order);
+    show("/orders/o1", [["/orders/:id", <OrderDetail />]]);
+    const link = await screen.findByText("Customer disputes the amount");
+    expect(link.closest("a")).toHaveAttribute("href", "/cases/k9");
+    expect(screen.getByText("Cases about this order")).toBeInTheDocument();
+  });
+
+  it("an order with no cases shows no empty cases box", async () => {
+    apiRequest.mockResolvedValue({ ...order, cases: [] });
+    show("/orders/o1", [["/orders/:id", <OrderDetail />]]);
+    await screen.findByText("Order #4021");
+    expect(screen.queryByText("Cases about this order")).not.toBeInTheDocument();
   });
 
   it("a deleted order says so", async () => {

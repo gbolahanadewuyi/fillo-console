@@ -8,6 +8,7 @@ import { naira, lagos, words } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
+import { buildMilestones, elapsed, timeToComplete } from "@/lib/order-timeline";
 import { QueryError } from "@/components/QueryError";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -40,6 +41,9 @@ export default function OrderDetail() {
   }
   if (!o) return <Back />;
   const owed = Number(o.balanceDue);
+  const milestones = buildMilestones(o);
+  const total = timeToComplete(o, milestones);
+  const done = milestones.find((m) => m.label === "Completed" || m.label === "Delivered");
 
   return (
     <div className="space-y-4">
@@ -162,19 +166,47 @@ export default function OrderDetail() {
         </Card>
       </div>
 
+      {o.cases.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Cases about this order</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {o.cases.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <Link to={`/cases/${c.id}`} className="font-medium text-primary hover:underline">{c.title}</Link>
+                  <span className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">{lagos(c.createdAt)}</span>
+                    <StatusBadge status={c.status} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-sm">Timeline</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span>Timeline</span>
+            {total !== null && <span className="text-xs font-normal text-muted-foreground">Placed to {words(done?.label ?? "completed").toLowerCase()}: {elapsed(total)}</span>}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          {o.timeline.length === 0 && <p className="text-sm text-muted-foreground">Nothing recorded.</p>}
-          <ul className="divide-y">
-            {o.timeline.map((t) => (
-              <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-sm">
-                <span className="font-mono text-xs">{t.action}</span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">{t.actorName}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{lagos(t.createdAt)}</span>
+          <ol className="relative space-y-4 border-l pl-5">
+            {milestones.map((m) => (
+              <li key={m.key} className="relative">
+                <span className="absolute -left-[26px] top-1.5 h-2 w-2 rounded-full bg-primary" aria-hidden />
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                  <span className="font-medium">{m.label}</span>
+                  <span className="text-xs text-muted-foreground">{lagos(m.at)}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {[m.by ? `by ${m.by}` : null, m.detail, m.after !== null ? `${elapsed(m.after)} after the step before` : null].filter(Boolean).join(" · ")}
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </CardContent>
       </Card>
     </div>

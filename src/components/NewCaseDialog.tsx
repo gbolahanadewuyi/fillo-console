@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
-import { useControlCompanies, useCreateCase } from "@/hooks/useControlApi";
+import { useControlCompanies, useControlOrder, useCreateCase } from "@/hooks/useControlApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ export function NewCaseDialog({ open, onOpenChange, defaults = {} }: { open: boo
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { companyId: defaults.companyId ?? "", title: "", note: "" } });
   const { data: companies } = useControlCompanies({ pageSize: 100 });
+  const { data: order } = useControlOrder(defaults.orderId);
 
   async function submit(values: Values) {
     setError(null);
@@ -51,6 +52,11 @@ export function NewCaseDialog({ open, onOpenChange, defaults = {} }: { open: boo
         <DialogHeader>
           <DialogTitle>New case</DialogTitle>
         </DialogHeader>
+        {(defaults.orderId || defaults.userId || defaults.posTransactionId) && (
+          <p className="rounded-md bg-muted px-3 py-2 text-sm">
+            About {defaults.orderId ? (order ? `order #${order.orderNumber}` : "this order") : defaults.userId ? "this person" : "this payment"}. It is linked automatically.
+          </p>
+        )}
         <form id="new-case" onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
           {!defaults.companyId && (
             <div className="space-y-2">
