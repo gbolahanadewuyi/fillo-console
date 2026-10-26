@@ -62,9 +62,20 @@ describe("a company's billing", () => {
     wrap(<BillingPanel companyId="c1" companyName="Real Gas" />);
     expect(await screen.findByText("1 of 1")).toBeInTheDocument();
     expect(screen.getByText("3 of 5")).toBeInTheDocument();
-    expect(screen.getAllByText(/From the plan/)).toHaveLength(2);
-    expect(screen.getByText(/not used by the apps yet/)).toBeInTheDocument(); // Advanced Reports
+    expect(screen.getAllByText(/From the plan/)).toHaveLength(1); // only a feature the apps actually check has a source
+    expect(screen.getByText(/Nothing in the apps uses this yet/)).toBeInTheDocument(); // Advanced Reports
+    expect(screen.getByText("Not available yet")).toBeInTheDocument(); // not "enabled": it does nothing
     expect(screen.getByText("cus_123")).toBeInTheDocument();
+  });
+
+  it("a feature nothing in the apps uses is never shown as enabled, and cannot be switched, even by the owner", async () => {
+    role = "platform_owner";
+    api();
+    wrap(<BillingPanel companyId="c1" companyName="Real Gas" />);
+    await screen.findByText("Not available yet");
+    expect(screen.queryByText("Enabled")).not.toBeInTheDocument(); // WhatsApp is off on this plan, Advanced Reports is not built
+    expect(screen.queryByRole("button", { name: /Advanced Reports/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn WhatsApp Integration on" })).toBeInTheDocument();
   });
 
   it("a company with no plan says it is unrestricted", async () => {
@@ -277,6 +288,14 @@ describe("plans", () => {
     wrap(<Plans />);
     await screen.findByText("Starter");
     expect(screen.queryByRole("button", { name: /New plan/ })).not.toBeInTheDocument();
+  });
+
+  it("a feature that is not built cannot be switched on for a plan", async () => {
+    api();
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Growth" }));
+    expect(await screen.findByRole("switch", { name: "Advanced Reports" })).toBeDisabled(); // Growth does not include it
+    expect(screen.getByRole("switch", { name: "WhatsApp Integration" })).toBeEnabled();
   });
 
   it("editing uses the same switches, starting from what the plan includes", async () => {

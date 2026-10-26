@@ -114,7 +114,7 @@ export function PlanDialog({ plan, onClose }: { plan?: Plan; onClose: () => void
                     <div className="text-sm">{f.label}</div>
                     {f.enforcedAt.length === 0 && <div className="text-xs text-muted-foreground">Not used by the apps yet</div>}
                   </div>
-                  <Switch aria-label={f.label} checked={features.includes(f.key)} onCheckedChange={(on) => toggle(f.key, on)} />
+                  <Switch aria-label={f.label} checked={features.includes(f.key)} disabled={f.enforcedAt.length === 0 && !features.includes(f.key)} onCheckedChange={(on) => toggle(f.key, on)} />
                 </div>
               ))}
               <div className="flex items-center justify-between gap-3 px-3 py-2">

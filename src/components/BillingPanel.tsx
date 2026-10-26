@@ -132,24 +132,27 @@ export function BillingPanel({ companyId, companyName }: { companyId: string; co
             <div key={f.key} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
               <div>
                 <div className="font-medium">{f.label}</div>
-                <div className="text-xs text-muted-foreground">
-                  {SOURCE[f.source]}
-                  {!f.enforced && " · not used by the apps yet"}
-                </div>
+                <div className="text-xs text-muted-foreground">{f.enforced ? SOURCE[f.source] : "Nothing in the apps uses this yet"}</div>
               </div>
               <div className="flex items-center gap-2">
-                <StatusBadge status={f.enabled ? "enabled" : "disabled"} />
-                {owner && (
+                {f.enforced ? (
                   <>
-                    <Button size="sm" variant="outline" aria-label={`Turn ${f.label} ${f.enabled ? "off" : "on"}`} onClick={() => setPending({ kind: "flag", key: f.key, label: f.label, enabled: !f.enabled })}>
-                      {f.enabled ? "Turn off" : "Turn on"}
-                    </Button>
-                    {f.source === "override" && (
-                      <Button size="sm" variant="ghost" aria-label={`Remove the ${f.label} override`} onClick={() => setPending({ kind: "flag", key: f.key, label: f.label, enabled: null })}>
-                        Remove override
-                      </Button>
+                    <StatusBadge status={f.enabled ? "enabled" : "disabled"} />
+                    {owner && (
+                      <>
+                        <Button size="sm" variant="outline" aria-label={`Turn ${f.label} ${f.enabled ? "off" : "on"}`} onClick={() => setPending({ kind: "flag", key: f.key, label: f.label, enabled: !f.enabled })}>
+                          {f.enabled ? "Turn off" : "Turn on"}
+                        </Button>
+                        {f.source === "override" && (
+                          <Button size="sm" variant="ghost" aria-label={`Remove the ${f.label} override`} onClick={() => setPending({ kind: "flag", key: f.key, label: f.label, enabled: null })}>
+                            Remove override
+                          </Button>
+                        )}
+                      </>
                     )}
                   </>
+                ) : (
+                  <span className="rounded border px-2 py-0.5 text-xs text-muted-foreground">Not available yet</span>
                 )}
               </div>
             </div>
