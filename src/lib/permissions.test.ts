@@ -6,7 +6,7 @@ const roles: PlatformRole[] = ["platform_owner", "platform_admin", "platform_sup
 
 describe("can (mirrors the API role matrix)", () => {
   it("only admin and owner may change a tenant", () => {
-    for (const action of ["company.suspend", "company.unsuspend", "company.branding"] as const) {
+    for (const action of ["company.suspend", "company.unsuspend", "company.branding", "company.test"] as const) {
       expect(roles.filter((r) => can(r, action))).toEqual(["platform_owner", "platform_admin"]);
     }
   });

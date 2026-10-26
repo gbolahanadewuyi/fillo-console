@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { activityLabel } from "@/lib/activity-labels";
 import { Search } from "lucide-react";
 import { useControlActivity, useControlAuditLogs } from "@/hooks/useControlApi";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -79,7 +80,7 @@ export function ActivityLedger({ title, description, source }: Props) {
                   <TableRow key={a.id}>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</TableCell>
                     <TableCell className="text-sm">{a.actorName ?? a.actorId ?? "System"}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.action}</TableCell>
+                    <TableCell className="text-sm" title={a.action}>{activityLabel(a.action)}</TableCell>
                     <TableCell className="text-sm">
                       {a.resourceType} {a.resourceLabel ? `• ${a.resourceLabel}` : `• ${a.resourceId.slice(0, 8)}`}
                     </TableCell>

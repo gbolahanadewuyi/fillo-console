@@ -12,6 +12,8 @@ export interface ControlCompany {
   industry?: string | null;
   status: "trial" | "active" | "suspended" | "archived" | "past_due" | "canceled";
   subscriptionStatus: string;
+  /** A test or demo company: left out of the dashboard unless asked for. */
+  isTest?: boolean;
   trialEndsAt?: string | null;
   billingProvider?: string | null;
   stationCount: number;
@@ -101,7 +103,7 @@ export interface IntegrationHealth {
 export interface AttentionItem {
   id: string;
   severity: "critical" | "warning";
-  kind: "integration" | "rejected_webhooks" | "job" | "outbox" | "company_suspended" | "company_past_due" | "whatsapp_request";
+  kind: "integration" | "rejected_webhooks" | "job" | "outbox" | "company_suspended" | "company_past_due" | "whatsapp_request" | "support_cases" | "trial_ending" | "no_first_order" | "pos_unmatched" | "pos_failed";
   title: string;
   detail: string;
   companyId?: string;
@@ -181,6 +183,44 @@ export function useControlStats() {
   });
 }
 
+/** The dashboard's numbers (see getControlOverview in the API for each definition). */
+export interface ControlOverview {
+  organisations: { total: number; active: number; trialing: number; pastDue: number; suspended: number; stations: number; users: number; testExcluded: number };
+  adoption: { active7d: number; newThisWeek: number; newLastWeek: number; atRisk: number };
+  usage: {
+    /** The last 14 Lagos days, oldest first. Payments are what companies recorded, before refunds. */
+    days: { date: string; orders: number; payments: number }[];
+    orders7d: number;
+    ordersPrev7d: number;
+    payments7d: number;
+    paymentsPrev7d: number;
+    whatsappOrders7d: number;
+  };
+  platform: {
+    api: "ok";
+    database: "ok";
+    jobs: { total: number; failing: number; stale: number };
+    integrations: { total: number; failing: number; unknown: number };
+    outbox: { stuck: number };
+  };
+}
+
+export function useControlOverview(includeTest = false) {
+  return useQuery({
+    queryKey: ["control", "overview", includeTest],
+    queryFn: () => apiRequest<ControlOverview>("GET", `/control/overview?includeTest=${includeTest}`),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useSetCompanyTest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isTest, reason }: { id: string; isTest: boolean; reason: string }) => apiRequest("PATCH", `/control/companies/${id}/test`, { isTest, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
 export function useControlCompanies(params: { page?: number; pageSize?: number; search?: string; status?: string; sort?: string }) {
   const { page = 1, pageSize = 20, search = "", status = "", sort = "" } = params;
   return useQuery({
@@ -247,10 +287,10 @@ export function useControlIntegrations() {
   });
 }
 
-export function useControlAttention() {
+export function useControlAttention(includeTest = false) {
   return useQuery({
-    queryKey: ["control", "attention"],
-    queryFn: async () => (await apiRequest<{ data: AttentionItem[] }>("GET", "/control/attention")).data,
+    queryKey: ["control", "attention", includeTest],
+    queryFn: async () => (await apiRequest<{ data: AttentionItem[] }>("GET", `/control/attention?includeTest=${includeTest}`)).data,
     refetchInterval: 60_000,
   });
 }

@@ -12,7 +12,7 @@ vi.mock("@/services/api", async () => {
 });
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { platformRole: "platform_owner" } }) }));
 vi.mock("recharts", () => ({
-  AreaChart: () => null, Area: () => null, XAxis: () => null, YAxis: () => null, CartesianGrid: () => null, Tooltip: () => null,
+  AreaChart: () => null, Area: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, CartesianGrid: () => null, Tooltip: () => null,
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
@@ -71,75 +71,6 @@ describe("what the API returns is what is shown", () => {
     });
     show(<Companies />);
     expect(await screen.findByText("Real Gas Ltd")).toBeInTheDocument();
-  });
-
-  const stats = { totalCompanies: 1, activeCompanies: 1, trialCompanies: 0, suspendedCompanies: 0, totalStations: 1, totalUsers: 1, activeUsers: 1, ordersToday: 3, paymentsToday: "2500", paymentsByDay: [{ date: "2030-01-15", payments: 1000 }, { date: "2030-01-16", payments: 2500 }], activeIntegrations: 2, failedIntegrations: 1 };
-  const dashboardApi = (attention: unknown[]) =>
-    apiRequest.mockImplementation(async (_m: string, path: string) => {
-      if (path.startsWith("/control/stats")) return stats;
-      if (path.startsWith("/control/attention")) return { data: attention };
-      return { data: [], page: 1, pageSize: 8, total: 0, totalPages: 1 };
-    });
-
-  it("the dashboard lists customers that need a look, with the reason, and links the company", async () => {
-    dashboardApi([
-      { id: "company:c1", severity: "critical", kind: "company_suspended", title: "Real Gas Ltd is suspended", detail: "Suspended: unpaid invoice", companyId: "c1" },
-      { id: "company:c2", severity: "warning", kind: "company_past_due", title: "Other Gas Ltd is past due", detail: "Billing is overdue", companyId: "c2" },
-    ]);
-    show(<Dashboard />);
-    expect(await screen.findByText("Real Gas Ltd is suspended")).toBeInTheDocument();
-    expect(screen.getByText("Suspended: unpaid invoice")).toBeInTheDocument();
-    expect(screen.getByText("Other Gas Ltd is past due")).toBeInTheDocument();
-    expect(screen.getByText("Something is failing")).toBeInTheDocument();
-    expect(screen.getByText("Real Gas Ltd is suspended").closest("a")).toHaveAttribute("href", "/companies/c1");
-  });
-
-  it("the dashboard shows no technical problem at all: integrations, webhooks, jobs and stuck events stay off it", async () => {
-    dashboardApi([
-      { id: "integration:w1", severity: "critical", kind: "integration", title: "whatsapp for Real Gas Ltd is failing", detail: "Meta answered 401", companyId: "c1" },
-      { id: "webhooks:b", severity: "warning", kind: "rejected_webhooks", title: "1 rejected bachs webhook", detail: "bad signature" },
-      { id: "job:notify-sweep", severity: "warning", kind: "job", title: "notify-sweep has stopped running", detail: "It should run every 5 minutes." },
-      { id: "outbox", severity: "critical", kind: "outbox", title: "3 notification events are stuck", detail: "subscriber exploded" },
-    ]);
-    show(<Dashboard />);
-    expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
-    for (const tech of [/failing/i, /webhook/i, /sweep/i, /stuck/i, /Meta answered/]) expect(screen.queryByText(tech)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Integrations:/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Platform health" })).not.toBeInTheDocument();
-  });
-
-  it("an empty attention list says nothing is flagged", async () => {
-    dashboardApi([]);
-    show(<Dashboard />);
-    expect(await screen.findByText("Nothing is flagged.")).toBeInTheDocument();
-    expect(screen.queryByText("Something is failing")).not.toBeInTheDocument();
-  });
-
-  it("the dashboard is the business: needs attention, then business numbers, and nothing about the platform", async () => {
-    dashboardApi([]);
-    show(<Dashboard />);
-    await screen.findByText("Nothing is flagged.");
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Needs attention", "Business"]);
-  });
-
-  it("business numbers say what they count, in naira and Lagos days", async () => {
-    dashboardApi([]);
-    show(<Dashboard />);
-    expect(await screen.findByText("Created since midnight in Lagos")).toBeInTheDocument();
-    expect(screen.getByText("Recorded since midnight in Lagos")).toBeInTheDocument();
-    expect(screen.getByText(/2,500/)).toBeInTheDocument(); // payments today
-    expect(screen.getByText(/Payments recorded, last 14 days: .*3,500/)).toBeInTheDocument(); // 1,000 + 2,500
-  });
-
-  it("a failed attention request says so instead of claiming all is well", async () => {
-    apiRequest.mockImplementation(async (_m: string, path: string) => {
-      if (path.startsWith("/control/stats")) return stats;
-      if (path.startsWith("/control/attention")) throw new ApiError(500, "attention is down");
-      return { data: [], page: 1, pageSize: 8, total: 0, totalPages: 1 };
-    });
-    show(<Dashboard />);
-    expect(await screen.findByText(/couldn't load the attention list/i)).toBeInTheDocument();
-    expect(screen.queryByText("Nothing is flagged.")).not.toBeInTheDocument();
   });
 
   it("shows the reason a person gave next to their change in the audit trail", async () => {

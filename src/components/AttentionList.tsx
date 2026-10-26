@@ -4,8 +4,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { AttentionItem } from "@/hooks/useControlApi";
 
 /** What kind of problem an item is: a customer's business (a company suspended or overdue) or the platform itself. */
-export const BUSINESS_KINDS: AttentionItem["kind"][] = ["company_suspended", "company_past_due", "whatsapp_request"];
+export const BUSINESS_KINDS: AttentionItem["kind"][] = [
+  "company_suspended",
+  "company_past_due",
+  "whatsapp_request",
+  "support_cases",
+  "trial_ending",
+  "no_first_order",
+  "pos_unmatched",
+  "pos_failed",
+];
 export const PLATFORM_KINDS: AttentionItem["kind"][] = ["integration", "rejected_webhooks", "job", "outbox"];
+
+/** Where each kind of line goes: the page where the problem is dealt with, narrowed to the company when there is one. */
+export function linkFor(item: AttentionItem): string | undefined {
+  switch (item.kind) {
+    case "whatsapp_request":
+      return "/whatsapp";
+    case "support_cases":
+      return "/cases";
+    case "pos_unmatched":
+      return `/payments?companyId=${item.companyId}&matched=no&status=SUCCESSFUL`;
+    case "pos_failed":
+      return `/payments?companyId=${item.companyId}&matched=all`;
+    default:
+      return item.companyId ? `/companies/${item.companyId}` : PLATFORM_KINDS.includes(item.kind) ? "/integrations" : undefined;
+  }
+}
 
 function Row({ item }: { item: AttentionItem }) {
   const body = (
@@ -18,7 +43,7 @@ function Row({ item }: { item: AttentionItem }) {
     </div>
   );
   // A waiting WhatsApp number is dealt with on its own page, not on the company's.
-  const to = item.kind === "whatsapp_request" ? "/whatsapp" : item.companyId ? `/companies/${item.companyId}` : PLATFORM_KINDS.includes(item.kind) ? "/integrations" : undefined;
+  const to = linkFor(item);
   return to ? (
     <Link to={to} className="block hover:bg-muted/50 rounded">
       {body}
@@ -29,11 +54,11 @@ function Row({ item }: { item: AttentionItem }) {
 }
 
 /** The attention feed narrowed to `kinds`, worst first (the API already orders it), with its own loading, error and empty states. */
-export function AttentionList({ items, error, kinds, limit = 8 }: { items: AttentionItem[] | undefined; error: unknown; kinds: AttentionItem["kind"][]; limit?: number }) {
+export function AttentionList({ items, error, kinds, limit = 8, empty = "Nothing is flagged." }: { items: AttentionItem[] | undefined; error: unknown; kinds: AttentionItem["kind"][]; limit?: number; empty?: string }) {
   if (error) return <QueryError error={error} what="the attention list" />;
   if (items === undefined) return <Skeleton className="h-16 w-full" />;
   const shown = items.filter((i) => kinds.includes(i.kind));
-  if (shown.length === 0) return <p className="text-sm text-muted-foreground">Nothing is flagged.</p>;
+  if (shown.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
   const critical = shown.some((i) => i.severity === "critical");
   return (
     <div className="space-y-2">

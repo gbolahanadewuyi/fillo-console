@@ -11,6 +11,7 @@ import type { PlatformRole } from "@/contexts/AuthContext";
 export type Action =
   | "company.suspend"
   | "company.unsuspend"
+  | "company.test"
   | "company.branding"
   | "flag.update"
   | "outbox.retry"
@@ -28,6 +29,8 @@ const SUPPORT: PlatformRole[] = ["platform_owner", "platform_admin", "platform_s
 const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "company.suspend": ADMIN,
   "company.unsuspend": ADMIN,
+  /** Mark a company as a test or demo company, so its numbers are left out of the dashboard. */
+  "company.test": ADMIN,
   "company.branding": ADMIN,
   "flag.update": ["platform_owner"],
   "outbox.retry": ADMIN,
