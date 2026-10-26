@@ -204,13 +204,6 @@ export interface ControlOverview {
     deliveriesCompleted7d: number;
     deliveriesCompletedPrev7d: number;
   };
-  platform: {
-    api: "ok";
-    database: "ok";
-    jobs: { total: number; failing: number; stale: number };
-    integrations: { total: number; failing: number; unknown: number };
-    outbox: { stuck: number };
-  };
 }
 
 export function useControlOverview(includeTest = false) {

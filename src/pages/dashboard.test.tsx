@@ -1,4 +1,4 @@
-/** The dashboard: what needs a person, how the platform is, who uses Fillo and how much, for customers only. */
+/** The dashboard: what needs a person, who uses Fillo and how much, for customers only. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,7 +21,6 @@ const overview = (over: Record<string, unknown> = {}) => ({
   adoption: { active7d: 2, newThisWeek: 1, newLastWeek: 0, atRisk: 1 },
   people: { active: 14, signedIn7d: 9, addedThisWeek: 2 },
   usage: { days: days(5, 12000), orders7d: 5, ordersPrev7d: 3, payments7d: 12000, paymentsPrev7d: 12000, whatsappOrders7d: 2, ordersCompleted7d: 4, ordersCompletedPrev7d: 6, deliveriesCompleted7d: 3, deliveriesCompletedPrev7d: 3 },
-  platform: { api: "ok", database: "ok", jobs: { total: 6, failing: 0, stale: 0 }, integrations: { total: 2, failing: 0, unknown: 0 }, outbox: { stuck: 0 } },
   ...over,
 });
 
@@ -78,23 +77,13 @@ describe("requires attention", () => {
 });
 
 describe("platform health", () => {
-  it("shows each check with its real state and links to the detail", async () => {
-    api(overview({ platform: { api: "ok", database: "ok", jobs: { total: 6, failing: 1, stale: 0 }, integrations: { total: 3, failing: 1, unknown: 1 }, outbox: { stuck: 4 } } }));
+  it("is not on the dashboard: it has its own page", async () => {
+    api();
     show();
-    const section = (await screen.findByRole("heading", { name: "Platform health" })).closest("section")!;
-    expect(within(section).getByText("Responding")).toBeInTheDocument();
-    expect(within(section).getByText("1 failing")).toBeInTheDocument();
-    expect(within(section).getByText("1 of 3 failing")).toBeInTheDocument();
-    expect(within(section).getByText("4 waiting over 15 minutes")).toBeInTheDocument();
-    expect(within(section).getByText("1 of 3 failing").closest("a")).toHaveAttribute("href", "/integrations");
-  });
-
-  it("says all is working only when it is, and says when an integration has no recent activity", async () => {
-    api(overview({ platform: { api: "ok", database: "ok", jobs: { total: 6, failing: 0, stale: 0 }, integrations: { total: 2, failing: 0, unknown: 2 }, outbox: { stuck: 0 } } }));
-    show();
-    expect(await screen.findByText("All 6 running")).toBeInTheDocument();
-    expect(screen.getByText("2 of 2 with no recent activity")).toBeInTheDocument();
-    expect(screen.queryByText(/All 2 working/)).not.toBeInTheDocument();
+    await screen.findByText("Adoption");
+    expect(screen.queryByRole("heading", { name: "Platform health" })).not.toBeInTheDocument();
+    for (const tech of [/Responding/, /Background jobs/, /Stuck notifications/, /API and database/]) expect(screen.queryByText(tech)).not.toBeInTheDocument();
+    expect(calls("/control/jobs")).toEqual([]);
   });
 });
 

@@ -20,44 +20,6 @@ const Section = ({ title, action, children }: { title: string; action?: React.Re
   </section>
 );
 
-type Tone = "ok" | "warn" | "bad";
-const DOT: Record<Tone, string> = { ok: "bg-green-500", warn: "bg-amber-500", bad: "bg-red-500" };
-
-/** One platform check: what it is, a coloured dot, and a plain sentence. Goes to the page where it is dealt with. */
-function HealthCell({ to, label, tone, text }: { to: string; label: string; tone: Tone; text: string }) {
-  return (
-    <Link to={to} className="block rounded-lg border bg-card p-4 hover:bg-muted/50">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-        <span className={`h-2 w-2 rounded-full ${DOT[tone]}`} aria-hidden />
-        {label}
-      </div>
-      <p className="mt-2 text-sm font-medium">{text}</p>
-    </Link>
-  );
-}
-
-function PlatformHealth({ platform }: { platform: ControlOverview["platform"] }) {
-  const { jobs, integrations, outbox } = platform;
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <HealthCell to="/platform" label="API and database" tone="ok" text="Responding" />
-      <HealthCell
-        to="/platform"
-        label="Background jobs"
-        tone={jobs.failing > 0 ? "bad" : jobs.stale > 0 ? "warn" : "ok"}
-        text={jobs.failing > 0 ? `${jobs.failing} failing` : jobs.stale > 0 ? `${jobs.stale} not running as scheduled` : `All ${jobs.total} running`}
-      />
-      <HealthCell
-        to="/integrations"
-        label="Integrations"
-        tone={integrations.failing > 0 ? "bad" : integrations.unknown > 0 ? "warn" : "ok"}
-        text={integrations.total === 0 ? "None connected" : integrations.failing > 0 ? `${integrations.failing} of ${integrations.total} failing` : integrations.unknown > 0 ? `${integrations.unknown} of ${integrations.total} with no recent activity` : `All ${integrations.total} working`}
-      />
-      <HealthCell to="/platform" label="Stuck notifications" tone={outbox.stuck > 0 ? "warn" : "ok"} text={outbox.stuck > 0 ? `${outbox.stuck} waiting over 15 minutes` : "None"} />
-    </div>
-  );
-}
-
 function Stat({ to, label, value, children }: { to: string; label: string; value: React.ReactNode; children?: React.ReactNode }) {
   return (
     <Card className="transition-colors hover:bg-muted/50">
@@ -178,7 +140,8 @@ function Usage({ usage }: { usage: ControlOverview["usage"] }) {
 
 /**
  * How Fillo is doing and what needs a person, for customers only. Fillo's own company and (unless asked) test companies are
- * left out, so test sales never look like customer activity. Platform health is a summary here and the detail on its own page.
+ * left out, so test sales never look like customer activity. How the platform itself is doing (jobs, integrations, stuck events)
+ * is the Platform health page, not here; a customer's own failing integration still shows as a line in Requires attention.
  */
 export default function Dashboard() {
   const [includeTest, setIncludeTest] = useState(false);
@@ -217,9 +180,6 @@ export default function Dashboard() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <>
-          <Section title="Platform health" action={<Link to="/platform" className="text-xs text-primary hover:underline">Details →</Link>}>
-            <PlatformHealth platform={overview.platform} />
-          </Section>
           <Section title="Adoption">
             <Adoption o={overview} />
           </Section>
