@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { FieldError } from "@/components/FieldError";
@@ -19,7 +19,9 @@ const schema = z.object({ email: z.string().trim().min(1, "Enter your email").em
 type Values = z.infer<typeof schema>;
 
 // The demo accounts exist only in the local Auth emulator. Real builds must not advertise them.
+// Staging builds set VITE_SHOW_DEMO_ACCOUNTS and VITE_DEMO_PASSWORD; production builds set neither.
 const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || MOCK_PLATFORM_PASSWORD;
 
 export default function Login() {
   const { user, login, loading } = useAuth();
@@ -43,8 +45,8 @@ export default function Login() {
 
   const fillDemo = (demoEmail: string) => {
     setValue("email", demoEmail);
-    setValue("password", MOCK_PLATFORM_PASSWORD);
-    setError(null);
+    setValue("password", DEMO_PASSWORD);
+    void submit({ email: demoEmail, password: DEMO_PASSWORD });
   };
 
   return (
@@ -90,8 +92,7 @@ export default function Login() {
         {SHOW_DEMO_ACCOUNTS && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Seeded demo accounts (Auth emulator)</CardTitle>
-            <CardDescription className="text-xs">Password: {MOCK_PLATFORM_PASSWORD} — mirrors EOP demo pattern</CardDescription>
+            <CardTitle className="text-sm text-muted-foreground">Demo accounts</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             {mockPlatformUsers.map((u) => {
