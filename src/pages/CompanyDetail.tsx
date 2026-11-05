@@ -19,6 +19,7 @@ import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
+import { AddressPanel } from "@/components/AddressPanel";
 import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
@@ -353,7 +354,8 @@ export default function CompanyDetail() {
           <BillingPanel companyId={id!} companyName={company.name} />
         </TabsContent>
 
-        <TabsContent value="branding">
+        <TabsContent value="branding" className="space-y-4">
+          <AddressPanel key={`${company.id}-${company.slug}-${company.mode}`} company={company} />
           <Card>
             <CardHeader>
               <CardTitle>Tenant branding</CardTitle>

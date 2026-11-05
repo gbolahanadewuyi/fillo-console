@@ -9,6 +9,7 @@
 import type { PlatformRole } from "@/contexts/AuthContext";
 
 export type Action =
+  | "company.create"
   | "company.suspend"
   | "company.unsuspend"
   | "company.test"
@@ -27,6 +28,8 @@ const ADMIN: PlatformRole[] = ["platform_owner", "platform_admin"];
 const SUPPORT: PlatformRole[] = ["platform_owner", "platform_admin", "platform_support"];
 
 const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
+  /** Create a company, change its address or its business type. */
+  "company.create": ADMIN,
   "company.suspend": ADMIN,
   "company.unsuspend": ADMIN,
   /** Mark a company as a test or demo company, so its numbers are left out of the dashboard. */

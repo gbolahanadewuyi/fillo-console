@@ -10,6 +10,10 @@ export interface ControlCompany {
   primaryColor?: string;
   secondaryColor?: string;
   industry?: string | null;
+  /** The company's address is <slug>.fillo.cloud. */
+  slug?: string | null;
+  /** Business type: a retail plant (till) or a depot (tanks and loading). */
+  mode?: "RETAIL" | "DEPOT";
   status: "trial" | "active" | "suspended" | "archived" | "past_due" | "canceled";
   subscriptionStatus: string;
   /** A test or demo company: left out of the dashboard unless asked for. */
@@ -727,4 +731,71 @@ export function useUpdateCompanyBranding() {
       apiRequest("PATCH", `/control/companies/${id}/branding`, payload),
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["control", "company", v.id] }),
   });
+}
+
+// ── Company onboarding (staff create a company, set its address and business type) ──────────────────────────
+export interface CreateCompanyInput {
+  name: string;
+  slug: string;
+  mode: "RETAIL" | "DEPOT";
+  planId: string;
+  startAs: "TRIAL" | "ACTIVE";
+  trialDays?: number;
+  owner: { name: string; email: string };
+  standardRoles: boolean;
+  reason: string;
+}
+
+export interface CreatedCompany {
+  company: { id: string; name: string; slug: string };
+  invite: { id: string; email: string; expiresAt: string; emailSent: boolean };
+  address: string;
+}
+
+export function useCreateCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCompanyInput) => apiRequest<CreatedCompany>("POST", "/control/companies", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export type SlugCheck = { available: true } | { available: false; reason: "invalid" | "reserved" | "taken" };
+
+/** Whether an address is free, asked as the person types (the caller debounces and passes "" to skip). */
+export function useCheckSlug(slug: string) {
+  return useQuery({
+    queryKey: ["control", "slug-check", slug],
+    queryFn: () => apiRequest<SlugCheck>("GET", `/control/slugs/check?slug=${encodeURIComponent(slug)}`),
+    enabled: slug.length > 0,
+    staleTime: 10_000,
+  });
+}
+
+export function useSetCompanySlug() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, slug, reason }: { id: string; slug: string; reason: string }) => apiRequest("PATCH", `/control/companies/${id}/slug`, { slug, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useSetCompanyMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mode, reason }: { id: string; mode: "RETAIL" | "DEPOT"; reason: string }) => apiRequest("PATCH", `/control/companies/${id}/mode`, { mode, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export interface AddressCheck {
+  slug: string | null;
+  url: string | null;
+  live: boolean;
+  status: number | null;
+  error: string | null;
+}
+
+export function useAddressCheck(id: string) {
+  return useMutation({ mutationFn: () => apiRequest<AddressCheck>("GET", `/control/companies/${id}/address-check`) });
 }

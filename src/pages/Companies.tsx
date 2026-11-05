@@ -6,6 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { usePageSize } from "@/lib/page-size";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useState } from "react";
+import { NewCompanyDialog } from "@/components/NewCompanyDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { can } from "@/lib/permissions";
 
 const COLUMNS: Column<ControlCompany>[] = [
   {
@@ -34,12 +40,23 @@ export default function Companies() {
   const t = useTableState();
   const { data, isLoading, error, refetch } = useControlCompanies({ page: t.page, pageSize, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
 
+  const { user } = useAuth();
+  const [creating, setCreating] = useState(false);
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
-        <p className="text-sm text-muted-foreground">Every company on the Fillo platform.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
+          <p className="text-sm text-muted-foreground">Every company on the Fillo platform.</p>
+        </div>
+        {can(user?.platformRole, "company.create") && (
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus className="mr-1 h-4 w-4" /> New company
+          </Button>
+        )}
       </div>
+      <NewCompanyDialog open={creating} onOpenChange={setCreating} />
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-3">
