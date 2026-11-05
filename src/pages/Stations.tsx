@@ -3,6 +3,7 @@ import { useControlStations, type ControlStation } from "@/hooks/useControlApi";
 import { useTableState } from "@/hooks/useTableState";
 import { DataTable, SearchBox, type Column } from "@/components/DataTable";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { usePageSize } from "@/lib/page-size";
 
 const COLUMNS: Column<ControlStation>[] = [
   { key: "name", header: "Station", sortKey: "name", className: "font-medium", cell: (s) => s.name },
@@ -21,8 +22,9 @@ const COLUMNS: Column<ControlStation>[] = [
 ];
 
 export default function Stations() {
+  const pageSize = usePageSize();
   const t = useTableState();
-  const { data, isLoading, error, refetch } = useControlStations({ page: t.page, pageSize: 20, search: t.filter("search"), sort: t.sort });
+  const { data, isLoading, error, refetch } = useControlStations({ page: t.page, pageSize, search: t.filter("search"), sort: t.sort });
 
   return (
     <div className="space-y-4">

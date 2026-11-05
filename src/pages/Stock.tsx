@@ -6,6 +6,7 @@ import { lagos, words } from "@/lib/format";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { usePageSize } from "@/lib/page-size";
 
 const COLUMNS: Column<ControlMovement>[] = [
   {
@@ -28,9 +29,10 @@ const COLUMNS: Column<ControlMovement>[] = [
 
 /** The stock ledger: every change to stock, newest first. Stock is the sum of these, so a wrong level starts here. */
 export default function Stock() {
+  const pageSize = usePageSize();
   const scope = useCompanyScope();
   const t = useTableState();
-  const { data, isLoading, error, refetch } = useControlMovements({ page: t.page, pageSize: 20, companyId: scope.companyId, type: apiValue(t.filter("type")) });
+  const { data, isLoading, error, refetch } = useControlMovements({ page: t.page, pageSize, companyId: scope.companyId, type: apiValue(t.filter("type")) });
 
   return (
     <div className="space-y-4">

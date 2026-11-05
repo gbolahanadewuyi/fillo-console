@@ -11,19 +11,21 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePageSize } from "@/lib/page-size";
 
 const daysSince = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null);
 const WAITING = ["REQUESTED", "NUMBER_ASSIGNED", "PENDING_APPROVAL"];
 
 /** Companies ask for a WhatsApp number; this is where Fillo sets each one up. The promise to them is 1 to 2 working days. */
 export default function WhatsApp() {
+  const pageSize = usePageSize();
   const { user } = useAuth();
   const t = useTableState({ filters: { status: "waiting" } });
   const [editing, setEditing] = useState<ControlWhatsappNumber | null>(null);
   const manage = can(user?.platformRole, "whatsapp.manage");
   // "waiting" is every request not yet live or paused: the work to do.
   const status = t.filter("status");
-  const { data, isLoading, error, refetch } = useControlWhatsapp({ page: t.page, pageSize: 20, status: status === "waiting" ? "" : apiValue(status) });
+  const { data, isLoading, error, refetch } = useControlWhatsapp({ page: t.page, pageSize, status: status === "waiting" ? "" : apiValue(status) });
   const rows = status === "waiting" ? data?.data.filter((r) => WAITING.includes(r.status)) : data?.data;
 
   const columns: Column<ControlWhatsappNumber>[] = [

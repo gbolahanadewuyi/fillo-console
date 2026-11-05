@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { InvitesPanel } from "@/components/InvitesPanel";
+import { usePageSize } from "@/lib/page-size";
 
 const COLUMNS: Column<ControlUser>[] = [
   {
@@ -38,9 +39,10 @@ const COLUMNS: Column<ControlUser>[] = [
 ];
 
 export default function UsersPage() {
+  const pageSize = usePageSize();
   const [params, setParams] = useSearchParams();
   const t = useTableState();
-  const { data, isLoading, error, refetch } = useControlUsers({ page: t.page, pageSize: 20, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
+  const { data, isLoading, error, refetch } = useControlUsers({ page: t.page, pageSize, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
   const tab = params.get("tab") === "invitations" ? "invitations" : "people";
 
   return (

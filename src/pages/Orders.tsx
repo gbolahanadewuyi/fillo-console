@@ -7,6 +7,7 @@ import { DataTable, SearchBox, type Column } from "@/components/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { usePageSize } from "@/lib/page-size";
 
 const STATUSES = ["DRAFT", "AWAITING_PAYMENT", "PAID", "PREPARING", "OUT_FOR_DELIVERY", "COMPLETED", "CANCELLED"];
 
@@ -41,11 +42,12 @@ const COLUMNS: Column<ControlOrderRow>[] = [
 ];
 
 export default function Orders() {
+  const pageSize = usePageSize();
   const scope = useCompanyScope();
   const t = useTableState();
   const { data, isLoading, error, refetch } = useControlOrders({
     page: t.page,
-    pageSize: 20,
+    pageSize,
     companyId: scope.companyId,
     search: t.filter("search"),
     status: apiValue(t.filter("status")),

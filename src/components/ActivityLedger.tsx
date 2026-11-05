@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TablePagination } from "@/components/TablePagination";
 import { QueryError } from "@/components/QueryError";
 import { Link } from "react-router-dom";
+import { usePageSize } from "@/lib/page-size";
 
 interface Props {
   title: string;
@@ -20,7 +21,7 @@ interface Props {
  *  "Action starts with" narrows to a family such as `company.` or `platform.`. */
 export function ActivityLedger({ title, description, source }: Props) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const pageSize = usePageSize();
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("");
   const filters = { page, pageSize, search: useDebouncedValue(search.trim()), action: useDebouncedValue(action.trim()) };
@@ -111,10 +112,6 @@ export function ActivityLedger({ title, description, source }: Props) {
               total={data?.total ?? 0}
               totalPages={data?.totalPages ?? 1}
               onPageChange={setPage}
-              onPageSizeChange={(n) => {
-                setPageSize(n);
-                setPage(1);
-              }}
             />
           </>
         )}

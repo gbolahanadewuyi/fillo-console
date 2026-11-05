@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { usePageSize } from "@/lib/page-size";
 
 const COLUMNS: Column<ControlPosTransaction>[] = [
   { key: "company", header: "Company", className: "text-sm", cell: (t) => <Link to={`/companies/${t.companyId}`} className="hover:underline">{t.companyName}</Link> },
@@ -25,11 +26,12 @@ const COLUMNS: Column<ControlPosTransaction>[] = [
 
 /** POS transactions the providers reported, and whether a recorded payment has been matched to each. */
 export default function Payments() {
+  const pageSize = usePageSize();
   const scope = useCompanyScope();
   const t = useTableState({ filters: { matched: "no" } });
   const { data, isLoading, error, refetch } = useControlPosTransactions({
     page: t.page,
-    pageSize: 20,
+    pageSize,
     companyId: scope.companyId,
     matched: apiValue(t.filter("matched")),
     status: apiValue(t.filter("status")),

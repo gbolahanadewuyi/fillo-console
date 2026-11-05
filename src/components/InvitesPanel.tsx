@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { DataTable, SearchBox, type Column } from "@/components/DataTable";
+import { usePageSize } from "@/lib/page-size";
 
 /**
  * Invitations across all companies (or one, with `companyId`): who was invited, whether it is still good, and
@@ -17,10 +18,11 @@ import { DataTable, SearchBox, type Column } from "@/components/DataTable";
  * company's tab it stays in memory so it never fights the tab for the address.
  */
 export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
+  const pageSize = usePageSize();
   const { user } = useAuth();
   const t = useTableState({ prefix: "inv_", syncUrl: !companyId });
   const [pending, setPending] = useState<{ invite: ControlInvite; action: "resend" | "revoke" } | null>(null);
-  const { data, isLoading, error, refetch } = useControlInvites({ page: t.page, pageSize: 20, companyId, search: t.filter("search"), status: apiValue(t.filter("status")).toUpperCase(), sort: t.sort });
+  const { data, isLoading, error, refetch } = useControlInvites({ page: t.page, pageSize, companyId, search: t.filter("search"), status: apiValue(t.filter("status")).toUpperCase(), sort: t.sort });
   const act = useInviteAction();
   const { toast } = useToast();
   const assist = can(user?.platformRole, "user.assist");

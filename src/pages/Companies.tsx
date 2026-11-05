@@ -5,6 +5,7 @@ import { DataTable, SearchBox, type Column } from "@/components/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { usePageSize } from "@/lib/page-size";
 
 const COLUMNS: Column<ControlCompany>[] = [
   {
@@ -29,8 +30,9 @@ const COLUMNS: Column<ControlCompany>[] = [
 ];
 
 export default function Companies() {
+  const pageSize = usePageSize();
   const t = useTableState();
-  const { data, isLoading, error, refetch } = useControlCompanies({ page: t.page, pageSize: 20, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
+  const { data, isLoading, error, refetch } = useControlCompanies({ page: t.page, pageSize, search: t.filter("search"), status: apiValue(t.filter("status")), sort: t.sort });
 
   return (
     <div className="space-y-4">

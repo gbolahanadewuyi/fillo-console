@@ -11,13 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable, type Column } from "@/components/DataTable";
 import { NewCaseDialog, type CaseDefaults } from "@/components/NewCaseDialog";
+import { usePageSize } from "@/lib/page-size";
 
 /** Cases, open ones first. With `companyId` it is that company's only, and its state stays in memory (it sits in a tab). */
 export function CasesPanel({ companyId, startOpen = false, defaults }: { companyId?: string; startOpen?: boolean; defaults?: CaseDefaults }) {
+  const pageSize = usePageSize();
   const { user } = useAuth();
   const t = useTableState({ filters: { status: "OPEN" }, syncUrl: !companyId });
   const [creating, setCreating] = useState(startOpen);
-  const { data, isLoading, error, refetch } = useControlCases({ page: t.page, pageSize: 20, companyId, status: apiValue(t.filter("status")), sort: t.sort });
+  const { data, isLoading, error, refetch } = useControlCases({ page: t.page, pageSize, companyId, status: apiValue(t.filter("status")), sort: t.sort });
   const canWrite = can(user?.platformRole, "case.write");
 
   const columns: Column<ControlCaseRow>[] = [
