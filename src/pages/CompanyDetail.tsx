@@ -20,6 +20,7 @@ import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
 import { AddressPanel } from "@/components/AddressPanel";
+import { OrderEditingOverride } from "@/components/OrderEditingOverride";
 import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
@@ -356,6 +357,7 @@ export default function CompanyDetail() {
 
         <TabsContent value="branding" className="space-y-4">
           <AddressPanel key={`${company.id}-${company.slug}-${company.mode}`} company={company} />
+          <OrderEditingOverride companyId={company.id} />
           <Card>
             <CardHeader>
               <CardTitle>Tenant branding</CardTitle>

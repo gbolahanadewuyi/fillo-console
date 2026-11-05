@@ -471,7 +471,7 @@ export interface ControlOrder {
   deliveries: { id: string; status: string; createdAt: string; assignedAt: string | null; completedAt: string | null; riderName: string | null }[];
   /** Support cases opened about this order, open ones first. */
   cases: { id: string; title: string; status: "OPEN" | "RESOLVED"; createdAt: string }[];
-  lines: { id: string; productName: string; quantity: string; unit: string; unitPrice: string; lineTotal: string }[];
+  lines: { id: string; productId: string; productName: string; quantity: string; unit: string; unitPrice: string; lineTotal: string }[];
   payments: { id: string; amount: string; method: string; reference: string | null; paidAt: string; recordedBy: string | null; pos: { id: string; provider: string; externalReference: string } | null }[];
   refunds: { id: string; amount: string; method: string; reason: string | null; createdAt: string }[];
   movements: { id: string; productName: string; quantity: string; type: string; createdAt: string }[];
@@ -798,4 +798,47 @@ export interface AddressCheck {
 
 export function useAddressCheck(id: string) {
   return useMutation({ mutationFn: () => apiRequest<AddressCheck>("GET", `/control/companies/${id}/address-check`) });
+}
+
+/** A company's order editing rules, as its owner sees them. */
+export interface OrderEditingSetting {
+  lockAfterHours: number;
+  hardLockAfterDays: number;
+  cashierEditMinutes: number;
+  cashierCorrectionMinutes: number;
+}
+
+export function useCompanySettings(id: string) {
+  return useQuery({ queryKey: ["control", "company-settings", id], queryFn: () => apiRequest<Record<string, unknown>>("GET", `/control/companies/${id}/settings`) });
+}
+
+export function useSetCompanySetting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, key, value, reason }: { id: string; key: string; value: unknown; reason: string }) => apiRequest("PATCH", `/control/companies/${id}/settings/${key}`, { value, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export interface OrderEditPayload {
+  lines: { productId: string; quantity: string }[];
+  reason: string;
+  reduction?: { kind: "REFUND" | "CORRECTION" };
+}
+
+/** Correcting a company's order as Fillo: past any lock, with a reason, recorded as done by Fillo. */
+export function useOverrideOrder(orderId: string) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["control"] });
+  return {
+    edit: useMutation({ mutationFn: (body: OrderEditPayload) => apiRequest("PATCH", `/control/orders/${orderId}`, body), onSuccess: done }),
+    correctPayment: useMutation({
+      mutationFn: ({ paymentId, ...body }: { paymentId: string; amount: string; method: string; reason: string }) => apiRequest("POST", `/control/orders/${orderId}/payments/${paymentId}/correct`, body),
+      onSuccess: done,
+    }),
+    changeCustomer: useMutation({
+      mutationFn: (body: { customerPhone: string; customerName?: string; reason: string }) => apiRequest("PATCH", `/control/orders/${orderId}/customer`, body),
+      onSuccess: done,
+    }),
+  };
 }

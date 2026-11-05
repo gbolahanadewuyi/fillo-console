@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
 import { buildMilestones, elapsed, timeToComplete } from "@/lib/order-timeline";
+import { OrderOverridePanel } from "@/components/OrderOverridePanel";
 import { QueryError } from "@/components/QueryError";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -165,6 +166,8 @@ export default function OrderDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {can(user?.platformRole, "company.override") && !o.deletedAt && <OrderOverridePanel key={`${o.id}-${o.total}-${o.customer?.id}`} order={o} />}
 
       {o.cases.length > 0 && (
         <Card>

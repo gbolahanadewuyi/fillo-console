@@ -14,6 +14,7 @@ export type Action =
   | "company.unsuspend"
   | "company.test"
   | "company.branding"
+  | "company.override"
   | "flag.update"
   | "outbox.retry"
   | "user.assist"
@@ -35,6 +36,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   /** Mark a company as a test or demo company, so its numbers are left out of the dashboard. */
   "company.test": ADMIN,
   "company.branding": ADMIN,
+  /** Change a company's settings, or correct one of its orders past any lock, when it asks for help. */
+  "company.override": ADMIN,
   "flag.update": ["platform_owner"],
   "outbox.retry": ADMIN,
   "user.assist": SUPPORT,
