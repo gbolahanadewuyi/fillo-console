@@ -1,4 +1,4 @@
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useControlCompany, useControlStations, useControlUsers, useControlActivity, useUnsuspendCompany, type ControlCompany } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,14 +20,19 @@ import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
 import { LOGO_TYPES, logoProblem } from "@/lib/logo";
+import { DeleteCompanyDialog } from "@/components/DeleteCompanyDialog";
+import { AddPersonDialog } from "@/components/AddPersonDialog";
+import { NewRoleDialog } from "@/components/NewRoleDialog";
 import { AddressPanel } from "@/components/AddressPanel";
 import { OrderEditingOverride } from "@/components/OrderEditingOverride";
+import { CompanySetupSettings } from "@/components/CompanySetupSettings";
+import { ImportRecords } from "@/components/ImportRecords";
 import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
 
 /** The tab is kept in the address, so a link can open a company straight on its cases or invitations. */
-const TABS = ["overview", "stations", "users", "integrations", "subscription", "cases", "branding", "activity"];
+const TABS = ["overview", "stations", "users", "import", "integrations", "subscription", "cases", "branding", "activity"];
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -148,6 +153,10 @@ export default function CompanyDetail() {
   const unsuspendMut = useUnsuspendCompany();
   const testMut = useSetCompanyTest();
   const [confirm, setConfirm] = useState<"suspend" | "unsuspend" | "test" | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [addingPerson, setAddingPerson] = useState(false);
+  const [addingRole, setAddingRole] = useState(false);
+  const navigate = useNavigate();
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
   if (error || !company) return <QueryError error={error ?? new Error("Company not found")} onRetry={() => void refetch()} what="this company" />;
@@ -194,6 +203,20 @@ export default function CompanyDetail() {
                 Suspend company
               </Button>
             )}
+        {can(user?.platformRole, "company.delete") && (
+          <Button variant="outline" size="sm" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleting(true)}>
+            Delete company
+          </Button>
+        )}
+        <DeleteCompanyDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          company={{ id: id!, name: company.name }}
+          onDeleted={() => {
+            toast({ title: "Company deleted", description: `${company.name} and its data were deleted.` });
+            navigate("/companies");
+          }}
+        />
         <ConfirmWithReason
           open={confirm === "test"}
           onOpenChange={(o) => !o && setConfirm(null)}
@@ -239,6 +262,7 @@ export default function CompanyDetail() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="stations">Stations</TabsTrigger>
           <TabsTrigger value="users">People</TabsTrigger>
+          <TabsTrigger value="import">Import</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="subscription">Billing</TabsTrigger>
           <TabsTrigger value="cases">Cases</TabsTrigger>
@@ -336,8 +360,16 @@ export default function CompanyDetail() {
 
         <TabsContent value="users">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
               <CardTitle>Users</CardTitle>
+              {can(user?.platformRole, "company.override") && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setAddingRole(true)}>New role</Button>
+                  <Button size="sm" onClick={() => setAddingPerson(true)}>Add person</Button>
+                </div>
+              )}
+              <AddPersonDialog companyId={id!} open={addingPerson} onOpenChange={setAddingPerson} />
+              <NewRoleDialog companyId={id!} open={addingRole} onOpenChange={setAddingRole} />
             </CardHeader>
             <CardContent>
               {usersError && <QueryError error={usersError} what="users" />}
@@ -383,6 +415,10 @@ export default function CompanyDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="import">
+          <ImportRecords companyId={id!} />
+        </TabsContent>
+
         <TabsContent value="integrations">
           <Card>
             <CardContent className="pt-6">
@@ -405,6 +441,7 @@ export default function CompanyDetail() {
 
         <TabsContent value="branding" className="space-y-4">
           <AddressPanel key={`${company.id}-${company.slug}-${company.mode}`} company={company} />
+          <CompanySetupSettings companyId={company.id} />
           <OrderEditingOverride companyId={company.id} />
           <Card>
             <CardHeader>

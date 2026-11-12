@@ -15,6 +15,7 @@ export type Action =
   | "company.test"
   | "company.branding"
   | "company.override"
+  | "company.delete"
   | "flag.update"
   | "outbox.retry"
   | "user.assist"
@@ -38,6 +39,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "company.branding": ADMIN,
   /** Change a company's settings, or correct one of its orders past any lock, when it asks for help. */
   "company.override": ADMIN,
+  /** Delete a company and everything it owns, for good. Only the platform owner. */
+  "company.delete": ["platform_owner"],
   "flag.update": ["platform_owner"],
   "outbox.retry": ADMIN,
   "user.assist": SUPPORT,

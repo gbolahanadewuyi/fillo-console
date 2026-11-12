@@ -252,7 +252,27 @@ describe("plans", () => {
     type(/reason/i, "new tier for chains");
     fireEvent.click(save);
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/plans", { name: "Growth Plus", price: "50000", stationLimit: 5, userLimit: null, featureCodes: ["whatsapp"], isActive: true, reason: "new tier for chains" }),
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/plans", { name: "Growth Plus", price: "50000", stationLimit: 5, userLimit: null, featureCodes: ["whatsapp"], isActive: true, billingCycle: "monthly", reason: "new tier for chains" }),
+    );
+  });
+
+  it("New plan: billed yearly, the price is for a year and the plan is created that way", async () => {
+    apiRequest.mockImplementation(async (method: string, path: string) => {
+      if (method === "POST") return { ...plans[0], id: "p10", name: "Medium" };
+      return path.startsWith("/control/feature-flags") ? catalogue : plans;
+    });
+    wrap(<Plans />);
+    fireEvent.click(await screen.findByRole("button", { name: /New plan/ }));
+    const save = await screen.findByRole("button", { name: "Create plan" });
+    type("Name", "Medium");
+    fireEvent.click(screen.getByRole("combobox", { name: "Billed" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Yearly" }));
+    type("Price (₦ a year)", "1500000");
+    type("People limit", "5");
+    type(/reason/i, "Seegas paid for the year");
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/plans", expect.objectContaining({ name: "Medium", price: "1500000", userLimit: 5, billingCycle: "yearly" })),
     );
   });
 

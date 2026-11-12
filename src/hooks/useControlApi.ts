@@ -697,6 +697,7 @@ export interface PlanPatch {
   userLimit?: number | null;
   featureCodes?: string[];
   isActive?: boolean;
+  billingCycle?: "monthly" | "yearly";
 }
 
 export interface NewPlanInput {
@@ -706,6 +707,7 @@ export interface NewPlanInput {
   userLimit: number | null;
   featureCodes: string[];
   isActive: boolean;
+  billingCycle?: "monthly" | "yearly";
 }
 
 export function useCreatePlan() {
@@ -841,4 +843,79 @@ export function useOverrideOrder(orderId: string) {
       onSuccess: done,
     }),
   };
+}
+
+/** What deleting a company would remove, shown before anyone confirms. */
+export interface DeletionPreview {
+  id: string;
+  name: string;
+  slug: string | null;
+  items: { label: string; count: number }[];
+}
+
+export function useDeletionPreview(id: string, enabled: boolean) {
+  return useQuery({ queryKey: ["control", "deletion-preview", id], queryFn: () => apiRequest<DeletionPreview>("GET", `/control/companies/${id}/deletion-preview`), enabled, staleTime: 0, gcTime: 0 });
+}
+
+export function useDeleteCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, confirmName, reason }: { id: string; confirmName: string; reason: string }) => apiRequest("POST", `/control/companies/${id}/delete`, { confirmName, reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+// ── Setting a company up on its behalf: its roles and the people it invites ────────────────────────────────
+export interface CompanyRole {
+  id: string;
+  name: string;
+  isSystemRole: boolean;
+  spendingLimit: string | null;
+  dailySpendingLimit?: string | null;
+  permissions: string[];
+}
+
+export function useCompanyRoles(id: string) {
+  return useQuery({ queryKey: ["control", "company-roles", id], queryFn: () => apiRequest<CompanyRole[]>("GET", `/control/companies/${id}/roles`) });
+}
+
+export function usePermissionCatalogue(enabled = true) {
+  return useQuery({ queryKey: ["control", "permissions"], queryFn: () => apiRequest<{ key: string; label: string }[]>("GET", "/control/permissions"), enabled, staleTime: 5 * 60_000 });
+}
+
+export function useCreateCompanyRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name: string; permissions: string[]; spendingLimit?: string; dailySpendingLimit?: string; reason: string }) => apiRequest<CompanyRole>("POST", `/control/companies/${id}/roles`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useInvitePerson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; email: string; roleId: string; stationId: string; reason: string }) =>
+      apiRequest<{ id: string; email: string; roleName: string; emailSent: boolean }>("POST", `/control/companies/${id}/people`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+// ── Importing a company's customers, suppliers and riders from a sheet ──────────────────────────────────────
+export interface ImportResult {
+  kind: "customers" | "suppliers" | "riders";
+  dryRun: boolean;
+  total: number;
+  created: number;
+  skipped: { row: number; name: string; reason: string }[];
+}
+
+export function useImportRecords() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, kind, rows, dryRun, reason }: { id: string; kind: ImportResult["kind"]; rows: Record<string, string>[]; dryRun: boolean; reason?: string }) =>
+      apiRequest<ImportResult>("POST", `/control/companies/${id}/import/${kind}`, { rows, dryRun, ...(reason ? { reason } : {}) }),
+    onSuccess: (_d, v) => {
+      if (!v.dryRun) qc.invalidateQueries({ queryKey: ["control"] });
+    },
+  });
 }

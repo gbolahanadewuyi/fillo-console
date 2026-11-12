@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FieldError } from "@/components/FieldError";
 import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
 
@@ -37,6 +38,7 @@ export function PlanDialog({ plan, onClose }: { plan?: Plan; onClose: () => void
   const { data: catalogue } = useControlFeatureFlags();
   const [features, setFeatures] = useState<string[]>(plan?.featureCodes ?? []);
   const [active, setActive] = useState(plan?.isActive ?? true);
+  const [cycle, setCycle] = useState<"monthly" | "yearly">(plan?.billingCycle === "yearly" ? "yearly" : "monthly");
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, watch, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
@@ -58,6 +60,7 @@ export function PlanDialog({ plan, onClose }: { plan?: Plan; onClose: () => void
     if (toLimit(v.userLimit ?? "") !== plan.userLimit) patch.userLimit = toLimit(v.userLimit ?? "");
     if (!same(features, plan.featureCodes)) patch.featureCodes = features;
     if (active !== plan.isActive) patch.isActive = active;
+    if (cycle !== (plan.billingCycle === "yearly" ? "yearly" : "monthly")) patch.billingCycle = cycle;
   }
   const changed = creating || Object.keys(patch).length > 0;
 
@@ -67,7 +70,7 @@ export function PlanDialog({ plan, onClose }: { plan?: Plan; onClose: () => void
     setError(null);
     try {
       if (plan) await update.mutateAsync({ id: plan.id, patch, reason: values.reason });
-      else await create.mutateAsync({ input: { name: values.name, price: values.price, stationLimit: toLimit(values.stationLimit), userLimit: toLimit(values.userLimit), featureCodes: features, isActive: active }, reason: values.reason });
+      else await create.mutateAsync({ input: { name: values.name, price: values.price, stationLimit: toLimit(values.stationLimit), userLimit: toLimit(values.userLimit), featureCodes: features, isActive: active, billingCycle: cycle }, reason: values.reason });
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "The plan could not be saved.");
@@ -88,11 +91,20 @@ export function PlanDialog({ plan, onClose }: { plan?: Plan; onClose: () => void
               <FieldError id="plan-name-error" message={errors.name?.message} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="plan-price">Price (₦ a month)</Label>
+              <Label htmlFor="plan-price">Price (₦ a {cycle === "yearly" ? "year" : "month"})</Label>
               <Input id="plan-price" inputMode="decimal" aria-invalid={!!errors.price} {...register("price")} />
               <FieldError id="plan-price-error" message={errors.price?.message} />
             </div>
-            <div />
+            <div className="space-y-2">
+              <Label htmlFor="plan-cycle">Billed</Label>
+              <Select value={cycle} onValueChange={(c) => setCycle(c as "monthly" | "yearly")}>
+                <SelectTrigger id="plan-cycle"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="plan-stations">Station limit</Label>
               <Input id="plan-stations" inputMode="numeric" placeholder="No limit" aria-invalid={!!errors.stationLimit} {...register("stationLimit")} />
