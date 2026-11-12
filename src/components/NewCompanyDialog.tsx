@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useNavigate } from "react-router-dom";
 import { ImagePlus } from "lucide-react";
 import { useCheckSlug, useControlPlans, useCreateCompany, useUpdateCompanyBranding, type CreatedCompany } from "@/hooks/useControlApi";
+import { RoleFields, draftPayload, draftProblem, emptyDraft, type RoleDraft } from "@/components/RoleFields";
 import { LOGO_TYPES, logoProblem, readAsDataUrl } from "@/lib/logo";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const schema = z.object({
   trialDays: z.string().regex(/^\d{1,2}$/, "Whole days, 1 to 90"),
   ownerName: z.string().trim().min(2, "Enter the owner's name"),
   ownerEmail: z.string().trim().email("Enter a valid email"),
+  stationName: z.string().trim().max(80),
   standardRoles: z.boolean(),
   reason: z.string().trim().min(MIN_REASON_LENGTH, `Give a reason of at least ${MIN_REASON_LENGTH} characters`),
 });
@@ -58,11 +60,14 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [logoError, setLogoError] = useState<string | null>(null);
   const [logoSaved, setLogoSaved] = useState(true);
   // null = left as the default, so nothing is sent unless staff choose a colour.
+  const [roles, setRoles] = useState<RoleDraft[]>([]);
+  // The role being written in the small dialog: its place in the list (null = a new one) and its text.
+  const [editing, setEditing] = useState<{ index: number | null; draft: RoleDraft } | null>(null);
   const [primary, setPrimary] = useState<string | null>(null);
   const [secondary, setSecondary] = useState<string | null>(null);
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", standardRoles: true, reason: "" },
+    defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", stationName: "", standardRoles: true, reason: "" },
   });
   const name = watch("name");
   const slug = watch("slug");
@@ -87,6 +92,8 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
       setLogoSaved(true);
       setPrimary(null);
       setSecondary(null);
+      setRoles([]);
+      setEditing(null);
     }
     onOpenChange(next);
   }
@@ -120,6 +127,8 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           trialDays: v.startAs === "TRIAL" ? Number(v.trialDays) : undefined,
           owner: { name: v.ownerName.trim(), email: v.ownerEmail.trim().toLowerCase() },
           standardRoles: v.standardRoles,
+          roles: roles.map(draftPayload),
+          ...(v.stationName.trim() ? { stationName: v.stationName.trim() } : {}),
           reason: v.reason.trim(),
         });
       // The logo goes up right after the company exists, so the owner's link shows it from the first visit.
@@ -195,6 +204,10 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
               </div>
             </div>
             <FieldError id="nc-logo-error" message={logoError ?? undefined} />
+            <div className="space-y-2">
+              <Label htmlFor="nc-station">Station name (optional)</Label>
+              <Input id="nc-station" placeholder="Main Station" {...register("stationName")} />
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {([["nc-primary", "Brand colour", primary, setPrimary, DEFAULT_PRIMARY], ["nc-secondary", "Second colour", secondary, setSecondary, DEFAULT_SECONDARY]] as const).map(([id, label, value, set, fallback]) => (
                 <div key={id} className="space-y-2">
@@ -266,10 +279,28 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
                 <FieldError id="nc-email-error" message={errors.ownerEmail?.message} />
               </div>
             </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Roles</h3>
             <div className="flex items-center justify-between rounded-md border px-3 py-2">
-              <Label htmlFor="nc-roles" className="text-sm">Add Manager, Cashier and Attendant roles</Label>
+              <Label htmlFor="nc-roles" className="text-sm">Standard roles: Manager, Cashier, Attendant</Label>
               <Switch id="nc-roles" checked={watch("standardRoles")} onCheckedChange={(v) => setValue("standardRoles", v)} />
             </div>
+            {roles.length > 0 && (
+              <ul className="divide-y rounded-md border">
+                {roles.map((r, i) => (
+                  <li key={`${r.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate font-medium">{r.name}<span className="ml-2 font-normal text-muted-foreground">{r.permissions.length} permissions{r.daily.trim() ? `, ₦${Number(r.daily).toLocaleString("en-NG")} a day` : ""}</span></span>
+                    <span className="flex shrink-0 gap-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing({ index: i, draft: r })}>Edit</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setRoles((cur) => cur.filter((_, k) => k !== i))}>Remove</Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditing({ index: null, draft: emptyDraft() })}>Add a role</Button>
           </section>
 
           <section className="space-y-2">
@@ -283,6 +314,28 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           <Button variant="outline" onClick={() => close(false)}>Cancel</Button>
           <Button type="submit" form="new-company" disabled={create.isPending || branding.isPending}>{create.isPending || branding.isPending ? "Creating…" : "Create company and invite owner"}</Button>
         </DialogFooter>
+      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{editing?.index === null ? "Add a role" : "Edit role"}</DialogTitle>
+          </DialogHeader>
+          {editing && <RoleFields draft={editing.draft} onChange={(draft) => setEditing({ ...editing, draft })} />}
+          {editing && draftProblem(editing.draft) && editing.draft.name.trim().length > 0 && <p className="text-xs text-muted-foreground">{draftProblem(editing.draft)}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button
+              disabled={!editing || draftProblem(editing.draft) !== null || roles.some((r, i) => i !== editing.index && r.name.trim().toLowerCase() === editing.draft.name.trim().toLowerCase())}
+              onClick={() => {
+                if (!editing) return;
+                setRoles((cur) => (editing.index === null ? [...cur, editing.draft] : cur.map((r, i) => (i === editing.index ? editing.draft : r))));
+                setEditing(null);
+              }}
+            >
+              {editing?.index === null ? "Add role" : "Save role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </DialogContent>
     </Dialog>
   );

@@ -745,6 +745,8 @@ export interface CreateCompanyInput {
   trialDays?: number;
   owner: { name: string; email: string };
   standardRoles: boolean;
+  roles?: { name: string; permissions: string[]; spendingLimit?: string; dailySpendingLimit?: string }[];
+  stationName?: string;
   reason: string;
 }
 

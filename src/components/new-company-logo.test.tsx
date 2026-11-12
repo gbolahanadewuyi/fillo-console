@@ -22,6 +22,7 @@ const type = (label: RegExp | string, value: string) => fireEvent.change(screen.
 beforeEach(() => {
   apiRequest.mockReset();
   apiRequest.mockImplementation(async (method: string, path: string) => {
+    if (path.includes("permissions")) return [{ key: "orders.create", label: "Create orders" }, { key: "finance.view", label: "View finance" }];
     if (path.includes("/plans")) return [{ id: "p1", name: "Medium", isActive: true }];
     if (path.includes("slug")) return { available: true };
     if (method === "POST") return { company: { id: "c9", name: "Seegas" }, invite: { email: "o@x.com", emailSent: true }, address: "seegas.fillo.cloud" };
@@ -55,5 +56,27 @@ describe("the logo field", () => {
     fireEvent.click(await screen.findByRole("option", { name: "Medium" }));
     fireEvent.click(screen.getByRole("button", { name: /Create company/ }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c9/branding", expect.objectContaining({ logoUrl: expect.stringContaining("data:image/png"), primaryColor: "#E4572E" })));
+  });
+});
+
+describe("roles at creation", () => {
+  it("sends the company's own roles with it", async () => {
+    wrap();
+    type(/Company name/, "Seegas");
+    type(/Owner's name/, "Idris Akanbi");
+    type(/Owner's email/, "o@x.com");
+    type(/^Reason/, "Paid for the year");
+    type(/Station name/, "Seegas Utako Station");
+    fireEvent.click(screen.getByRole("button", { name: "Add a role" }));
+    type(/^Name$/, "Accountant");
+    fireEvent.click(await screen.findByLabelText("View finance"));
+    fireEvent.click(screen.getByRole("button", { name: "Add role" }));
+    expect(await screen.findByText(/Accountant/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("combobox", { name: "Plan" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Medium" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create company/ }));
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/companies", expect.objectContaining({ stationName: "Seegas Utako Station", roles: [{ name: "Accountant", permissions: ["finance.view"] }] })),
+    );
   });
 });
