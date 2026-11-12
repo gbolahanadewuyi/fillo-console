@@ -3,7 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
-import { useCheckSlug, useControlPlans, useCreateCompany, type CreatedCompany } from "@/hooks/useControlApi";
+import { ImagePlus } from "lucide-react";
+import { useCheckSlug, useControlPlans, useCreateCompany, useUpdateCompanyBranding, type CreatedCompany } from "@/hooks/useControlApi";
+import { LOGO_TYPES, logoProblem, readAsDataUrl } from "@/lib/logo";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,10 +45,14 @@ const REASONS: Record<string, string> = { taken: "That address is already used b
 export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
   const create = useCreateCompany();
+  const branding = useUpdateCompanyBranding();
   const { data: plans } = useControlPlans();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CreatedCompany | null>(null);
   const [slugEdited, setSlugEdited] = useState(false);
+  const [logo, setLogo] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoSaved, setLogoSaved] = useState(true);
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", standardRoles: true, reason: "" },
@@ -63,14 +69,30 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
   }, [name, slugEdited, setValue]);
 
   function close(next: boolean) {
-    if (create.isPending) return;
+    if (create.isPending || branding.isPending) return;
     if (!next) {
       reset();
       setError(null);
       setDone(null);
       setSlugEdited(false);
+      setLogo(null);
+      setLogoError(null);
+      setLogoSaved(true);
     }
     onOpenChange(next);
+  }
+
+  async function chooseLogo(file: File | undefined) {
+    setLogoError(null);
+    setLogo(null);
+    if (!file) return;
+    const problem = logoProblem(file);
+    if (problem) return setLogoError(problem);
+    try {
+      setLogo(await readAsDataUrl(file));
+    } catch (e) {
+      setLogoError(e instanceof Error ? e.message : "Could not read that file.");
+    }
   }
 
   async function submit(v: Values) {
@@ -80,8 +102,7 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
       return;
     }
     try {
-      setDone(
-        await create.mutateAsync({
+      const created = await create.mutateAsync({
           name: v.name.trim(),
           slug: v.slug.trim().toLowerCase(),
           mode: v.mode,
@@ -91,8 +112,18 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           owner: { name: v.ownerName.trim(), email: v.ownerEmail.trim().toLowerCase() },
           standardRoles: v.standardRoles,
           reason: v.reason.trim(),
-        }),
-      );
+        });
+      // The logo goes up right after the company exists, so the owner's link shows it from the first visit.
+      let saved = true;
+      if (logo) {
+        try {
+          await branding.mutateAsync({ id: created.company.id, payload: { logoUrl: logo } });
+        } catch {
+          saved = false;
+        }
+      }
+      setLogoSaved(saved);
+      setDone(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The company could not be created.");
     }
@@ -107,6 +138,7 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <p>{done.invite.emailSent ? `An invitation went to ${done.invite.email}.` : `The invitation to ${done.invite.email} could not be emailed. Resend it from the company's People tab.`}</p>
+            {!logoSaved && <p className="text-destructive">The logo could not be saved. Add it again from the company's Branding tab.</p>}
             <p>The company's address is <span className="font-medium">{done.address}</span>. It will not open until the address is added in GoDaddy and Coolify. The company page has the steps and a check.</p>
           </div>
           <DialogFooter>
@@ -121,94 +153,113 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
   const slugState = !debouncedSlug ? null : availability ? ("reason" in availability ? availability.reason : "free") : "checking";
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[92vh] flex-col gap-0 p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>New company</DialogTitle>
         </DialogHeader>
-        <form id="new-company" onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nc-name">Company name</Label>
-            <Input id="nc-name" autoFocus aria-invalid={!!errors.name} {...register("name")} />
-            <FieldError id="nc-name-error" message={errors.name?.message} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="nc-slug">Address</Label>
-            <div className="flex items-center gap-2">
-              <Input id="nc-slug" aria-invalid={!!errors.slug} {...register("slug", { onChange: () => setSlugEdited(true) })} />
-              <span className="shrink-0 text-sm text-muted-foreground">.fillo.cloud</span>
+        <form id="new-company" onSubmit={handleSubmit(submit)} noValidate className="space-y-6 overflow-y-auto px-6 py-5">
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Company</h3>
+            <div className="flex items-start gap-4">
+              <label htmlFor="nc-logo" className="flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border border-dashed text-xs text-muted-foreground hover:bg-muted focus-within:ring-2 focus-within:ring-ring">
+                {logo ? <img src={logo} alt="Chosen logo" className="h-full w-full object-contain p-1" /> : <><ImagePlus className="h-5 w-5" aria-hidden /><span>Logo</span></>}
+                <input id="nc-logo" type="file" accept={LOGO_TYPES.join(",")} className="sr-only" aria-describedby="nc-logo-error" onChange={(e) => void chooseLogo(e.target.files?.[0])} />
+              </label>
+              <div className="grid flex-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nc-name">Company name</Label>
+                  <Input id="nc-name" autoFocus aria-invalid={!!errors.name} {...register("name")} />
+                  <FieldError id="nc-name-error" message={errors.name?.message} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nc-slug">Address</Label>
+                  <div className="flex items-center gap-2">
+                    <Input id="nc-slug" aria-invalid={!!errors.slug} {...register("slug", { onChange: () => setSlugEdited(true) })} />
+                    <span className="shrink-0 text-sm text-muted-foreground">.fillo.cloud</span>
+                  </div>
+                  {slugState === "free" && <p className="text-xs text-green-600">{slug.trim().toLowerCase()}.fillo.cloud is free.</p>}
+                  {slugState === "checking" && <p className="text-xs text-muted-foreground">Checking…</p>}
+                  {slugState && slugState !== "free" && slugState !== "checking" && <p className="text-xs text-destructive">{REASONS[slugState]}</p>}
+                  <FieldError id="nc-slug-error" message={errors.slug?.message} />
+                </div>
+              </div>
             </div>
-            {slugState === "free" && <p className="text-xs text-green-600">{slug.trim().toLowerCase()}.fillo.cloud is free.</p>}
-            {slugState === "checking" && <p className="text-xs text-muted-foreground">Checking…</p>}
-            {slugState && slugState !== "free" && slugState !== "checking" && <p className="text-xs text-destructive">{REASONS[slugState]}</p>}
-            <FieldError id="nc-slug-error" message={errors.slug?.message} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="nc-mode">Business type</Label>
-              <Select value={watch("mode")} onValueChange={(v) => setValue("mode", v as "RETAIL" | "DEPOT")}>
-                <SelectTrigger id="nc-mode" aria-label="Business type"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RETAIL">Retail (till, plant)</SelectItem>
-                  <SelectItem value="DEPOT">Depot (tanks, loading)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nc-plan">Plan</Label>
-              <Select value={watch("planId")} onValueChange={(v) => setValue("planId", v, { shouldValidate: true })}>
-                <SelectTrigger id="nc-plan" aria-label="Plan"><SelectValue placeholder="Choose a plan" /></SelectTrigger>
-                <SelectContent>
-                  {(plans ?? []).filter((p) => p.isActive !== false).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <FieldError id="nc-plan-error" message={errors.planId?.message} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="nc-start">Starts as</Label>
-              <Select value={startAs} onValueChange={(v) => setValue("startAs", v as "TRIAL" | "ACTIVE")}>
-                <SelectTrigger id="nc-start" aria-label="Starts as"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TRIAL">A free trial</SelectItem>
-                  <SelectItem value="ACTIVE">An active customer</SelectItem>
-                </SelectContent>
-              </Select>
+            <FieldError id="nc-logo-error" message={logoError ?? undefined} />
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="nc-mode">Business type</Label>
+                <Select value={watch("mode")} onValueChange={(v) => setValue("mode", v as "RETAIL" | "DEPOT")}>
+                  <SelectTrigger id="nc-mode" aria-label="Business type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RETAIL">Retail (till, plant)</SelectItem>
+                    <SelectItem value="DEPOT">Depot (tanks, loading)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nc-plan">Plan</Label>
+                <Select value={watch("planId")} onValueChange={(v) => setValue("planId", v, { shouldValidate: true })}>
+                  <SelectTrigger id="nc-plan" aria-label="Plan"><SelectValue placeholder="Choose a plan" /></SelectTrigger>
+                  <SelectContent>
+                    {(plans ?? []).filter((p) => p.isActive !== false).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FieldError id="nc-plan-error" message={errors.planId?.message} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nc-start">Starts as</Label>
+                <Select value={startAs} onValueChange={(v) => setValue("startAs", v as "TRIAL" | "ACTIVE")}>
+                  <SelectTrigger id="nc-start" aria-label="Starts as"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TRIAL">A free trial</SelectItem>
+                    <SelectItem value="ACTIVE">An active customer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {startAs === "TRIAL" && (
-              <div className="space-y-2">
+              <div className="space-y-2 sm:max-w-[12rem]">
                 <Label htmlFor="nc-days">Trial length (days)</Label>
                 <Input id="nc-days" inputMode="numeric" {...register("trialDays")} />
                 <FieldError id="nc-days-error" message={errors.trialDays?.message} />
               </div>
             )}
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="nc-owner">Owner's name</Label>
-              <Input id="nc-owner" autoComplete="off" aria-invalid={!!errors.ownerName} {...register("ownerName")} />
-              <FieldError id="nc-owner-error" message={errors.ownerName?.message} />
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Owner</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="nc-owner">Owner's name</Label>
+                <Input id="nc-owner" autoComplete="off" aria-invalid={!!errors.ownerName} {...register("ownerName")} />
+                <FieldError id="nc-owner-error" message={errors.ownerName?.message} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nc-email">Owner's email</Label>
+                <Input id="nc-email" type="email" autoComplete="off" aria-invalid={!!errors.ownerEmail} {...register("ownerEmail")} />
+                <FieldError id="nc-email-error" message={errors.ownerEmail?.message} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="nc-email">Owner's email</Label>
-              <Input id="nc-email" type="email" autoComplete="off" aria-invalid={!!errors.ownerEmail} {...register("ownerEmail")} />
-              <FieldError id="nc-email-error" message={errors.ownerEmail?.message} />
+            <div className="flex items-center justify-between rounded-md border px-3 py-2">
+              <Label htmlFor="nc-roles" className="text-sm">Add Manager, Cashier and Attendant roles</Label>
+              <Switch id="nc-roles" checked={watch("standardRoles")} onCheckedChange={(v) => setValue("standardRoles", v)} />
             </div>
-          </div>
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label htmlFor="nc-roles" className="text-sm">Add Manager, Cashier and Attendant roles</Label>
-            <Switch id="nc-roles" checked={watch("standardRoles")} onCheckedChange={(v) => setValue("standardRoles", v)} />
-          </div>
-          <div className="space-y-2">
+          </section>
+
+          <section className="space-y-2">
             <Label htmlFor="nc-reason">Reason</Label>
             <Input id="nc-reason" placeholder="e.g. Signed on 5 Nov" aria-invalid={!!errors.reason} {...register("reason")} />
             <FieldError id="nc-reason-error" message={errors.reason?.message} />
-          </div>
+          </section>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </form>
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button variant="outline" onClick={() => close(false)}>Cancel</Button>
-          <Button type="submit" form="new-company" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create company and invite owner"}</Button>
+          <Button type="submit" form="new-company" disabled={create.isPending || branding.isPending}>{create.isPending || branding.isPending ? "Creating…" : "Create company and invite owner"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

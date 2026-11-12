@@ -19,7 +19,7 @@ import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
-import { LOGO_TYPES, logoProblem } from "@/lib/logo";
+import { LOGO_TYPES, logoProblem, readAsDataUrl } from "@/lib/logo";
 import { DeleteCompanyDialog } from "@/components/DeleteCompanyDialog";
 import { AddPersonDialog } from "@/components/AddPersonDialog";
 import { NewRoleDialog } from "@/components/NewRoleDialog";
@@ -35,15 +35,6 @@ import { can } from "@/lib/permissions";
 const TABS = ["overview", "stations", "users", "import", "integrations", "subscription", "cases", "branding", "activity"];
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read that file."));
-    reader.readAsDataURL(file);
-  });
-}
 
 const brandingSchema = z.object({
   primaryColor: z.string().regex(HEX, "Use a hex colour like #1B6EF3."),

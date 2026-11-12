@@ -8,3 +8,13 @@ export function logoProblem(file: Pick<File, "type" | "size">): string | null {
   if (file.size > MAX_LOGO_BYTES) return "That image is too large. Use one under 700 KB.";
   return null;
 }
+
+/** Reads the chosen image as a data URI, which is how the API receives a logo. */
+export function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}
