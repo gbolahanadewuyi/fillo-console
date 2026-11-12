@@ -727,7 +727,7 @@ export function useUpdatePlan() {
 export function useUpdateCompanyBranding() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { logoUrl?: string; primaryColor?: string; secondaryColor?: string } }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: { logoUrl?: string | null; primaryColor?: string; secondaryColor?: string } }) =>
       apiRequest("PATCH", `/control/companies/${id}/branding`, payload),
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["control", "company", v.id] }),
   });

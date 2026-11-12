@@ -19,6 +19,7 @@ import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { BillingPanel } from "@/components/BillingPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { InvitesPanel } from "@/components/InvitesPanel";
+import { LOGO_TYPES, logoProblem } from "@/lib/logo";
 import { AddressPanel } from "@/components/AddressPanel";
 import { OrderEditingOverride } from "@/components/OrderEditingOverride";
 import { QueryError } from "@/components/QueryError";
@@ -29,6 +30,15 @@ import { can } from "@/lib/permissions";
 const TABS = ["overview", "stations", "users", "integrations", "subscription", "cases", "branding", "activity"];
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}
 
 const brandingSchema = z.object({
   primaryColor: z.string().regex(HEX, "Use a hex colour like #1B6EF3."),
@@ -47,9 +57,27 @@ function BrandingForm({ company }: { company: ControlCompany }) {
     defaultValues: { primaryColor: company.primaryColor ?? "#1B6EF3", secondaryColor: company.secondaryColor ?? "#0B1B2A" },
   });
 
+  // undefined = leave the logo as it is, null = remove it, a data URI = the new image (the API stores it).
+  const [logo, setLogo] = useState<string | null | undefined>(undefined);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const shownLogo = logo === undefined ? company.logoUrl : logo;
+
+  async function chooseLogo(file: File | undefined) {
+    setLogoError(null);
+    if (!file) return;
+    const problem = logoProblem(file);
+    if (problem) return setLogoError(problem);
+    try {
+      setLogo(await readAsDataUrl(file));
+    } catch (e) {
+      setLogoError(e instanceof Error ? e.message : "Could not read that file.");
+    }
+  }
+
   async function save(values: BrandingValues) {
     try {
-      await brandingMut.mutateAsync({ id: company.id, payload: values });
+      await brandingMut.mutateAsync({ id: company.id, payload: { ...values, ...(logo !== undefined ? { logoUrl: logo } : {}) } });
+      setLogo(undefined);
       toast({ title: "Branding updated" });
     } catch (e) {
       toast({ title: "Failed", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
@@ -59,6 +87,26 @@ function BrandingForm({ company }: { company: ControlCompany }) {
   return (
     <CardContent>
       <form onSubmit={handleSubmit(save)} noValidate className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="company-logo">Logo</Label>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-16 w-32 items-center justify-center rounded border bg-muted/30 p-2">
+              {shownLogo ? <img src={shownLogo} alt={`${company.name} logo`} className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-muted-foreground">No logo</span>}
+            </div>
+            {editable && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="company-logo" type="file" accept={LOGO_TYPES.join(",")} className="max-w-xs" aria-describedby="logo-error" onChange={(e) => void chooseLogo(e.target.files?.[0])} />
+                {shownLogo && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLogo(null)}>
+                    Remove logo
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          <FieldError id="logo-error" message={logoError ?? undefined} />
+          {logo !== undefined && <p className="text-xs text-muted-foreground">{logo === null ? "The logo will be removed when you save." : "The new logo is used when you save."}</p>}
+        </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {([["primaryColor", "primary", "Primary colour"], ["secondaryColor", "secondary", "Secondary colour"]] as const).map(([name, id, label]) => {
             const value = watch(name);
