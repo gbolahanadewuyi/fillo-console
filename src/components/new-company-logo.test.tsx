@@ -48,11 +48,12 @@ describe("the logo field", () => {
     type(/Owner's name/, "Idris Akanbi");
     type(/Owner's email/, "o@x.com");
     type(/^Reason/, "Paid for the year");
+    type(/^Brand colour$/, "#E4572E");
     fireEvent.change(screen.getByLabelText(/Logo/), { target: { files: [new File(["x"], "logo.png", { type: "image/png" })] } });
     await screen.findByAltText("Chosen logo");
     fireEvent.click(screen.getByRole("combobox", { name: "Plan" }));
     fireEvent.click(await screen.findByRole("option", { name: "Medium" }));
     fireEvent.click(screen.getByRole("button", { name: /Create company/ }));
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c9/branding", expect.objectContaining({ logoUrl: expect.stringContaining("data:image/png") })));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c9/branding", expect.objectContaining({ logoUrl: expect.stringContaining("data:image/png"), primaryColor: "#E4572E" })));
   });
 });

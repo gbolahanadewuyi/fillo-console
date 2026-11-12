@@ -39,6 +39,10 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
+const DEFAULT_PRIMARY = "#1B6EF3";
+const DEFAULT_SECONDARY = "#0B1B2A";
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+
 const REASONS: Record<string, string> = { taken: "That address is already used by another company.", reserved: "That address is reserved for Fillo's own sites.", invalid: "Not a valid address." };
 
 /** Staff create a client company: its address, business type, plan and the owner who is invited by email. */
@@ -53,6 +57,9 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [logo, setLogo] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [logoSaved, setLogoSaved] = useState(true);
+  // null = left as the default, so nothing is sent unless staff choose a colour.
+  const [primary, setPrimary] = useState<string | null>(null);
+  const [secondary, setSecondary] = useState<string | null>(null);
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", standardRoles: true, reason: "" },
@@ -78,6 +85,8 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
       setLogo(null);
       setLogoError(null);
       setLogoSaved(true);
+      setPrimary(null);
+      setSecondary(null);
     }
     onOpenChange(next);
   }
@@ -115,9 +124,10 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
         });
       // The logo goes up right after the company exists, so the owner's link shows it from the first visit.
       let saved = true;
-      if (logo) {
+      const payload = { ...(logo ? { logoUrl: logo } : {}), ...(primary && HEX.test(primary) ? { primaryColor: primary } : {}), ...(secondary && HEX.test(secondary) ? { secondaryColor: secondary } : {}) };
+      if (Object.keys(payload).length > 0) {
         try {
-          await branding.mutateAsync({ id: created.company.id, payload: { logoUrl: logo } });
+          await branding.mutateAsync({ id: created.company.id, payload });
         } catch {
           saved = false;
         }
@@ -138,7 +148,7 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <p>{done.invite.emailSent ? `An invitation went to ${done.invite.email}.` : `The invitation to ${done.invite.email} could not be emailed. Resend it from the company's People tab.`}</p>
-            {!logoSaved && <p className="text-destructive">The logo could not be saved. Add it again from the company's Branding tab.</p>}
+            {!logoSaved && <p className="text-destructive">The logo and colours could not be saved. Add them again from the company's Branding tab.</p>}
             <p>The company's address is <span className="font-medium">{done.address}</span>. It will not open until the address is added in GoDaddy and Coolify. The company page has the steps and a check.</p>
           </div>
           <DialogFooter>
@@ -185,6 +195,18 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
               </div>
             </div>
             <FieldError id="nc-logo-error" message={logoError ?? undefined} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {([["nc-primary", "Brand colour", primary, setPrimary, DEFAULT_PRIMARY], ["nc-secondary", "Second colour", secondary, setSecondary, DEFAULT_SECONDARY]] as const).map(([id, label, value, set, fallback]) => (
+                <div key={id} className="space-y-2">
+                  <Label htmlFor={id}>{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" aria-label={`${label} picker`} value={value && HEX.test(value) ? value : fallback} onChange={(e) => set(e.target.value.toUpperCase())} className="h-9 w-12 cursor-pointer rounded border bg-transparent p-1" />
+                    <Input id={id} value={value ?? ""} placeholder={fallback} aria-invalid={!!value && !HEX.test(value)} onChange={(e) => set(e.target.value.trim() || null)} />
+                  </div>
+                  {value && !HEX.test(value) && <p className="text-xs text-destructive">Use a hex colour like {fallback}.</p>}
+                </div>
+              ))}
+            </div>
           </section>
 
           <section className="space-y-4">
