@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { isLocalAuth } from "@/lib/auth-mode";
 
 export default function Settings() {
   const apiUrl = import.meta.env.VITE_API_URL as string;
@@ -24,7 +23,7 @@ export default function Settings() {
           </div>
           <div className="space-y-2">
             <Label>Sign-in system</Label>
-            <Input value={isLocalAuth ? "Fillo accounts" : `Firebase (${import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "not configured"})`} readOnly className="text-sm" />
+            <Input value="Fillo accounts" readOnly className="text-sm" />
           </div>
         </CardContent>
       </Card>

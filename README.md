@@ -54,7 +54,6 @@ npm run verify           # lint + tests + production build (the pre-push hook ru
 | Setting | Meaning |
 |---|---|
 | `VITE_API_URL` | API base including `/v1`, e.g. `https://api.fillo.cloud/v1` |
-| `VITE_AUTH_PROVIDER=local` | Sign in with Fillo accounts (what staging and production use). Unset = Firebase Auth, used with the local emulator |
 | `VITE_SHOW_DEMO_ACCOUNTS=true` | Show the demo-account picker on the login page (always shown in `npm run dev`) |
 
 Only `@fillo.cloud`, `@fillo.africa`, `@fillo.io` and `@fillo-demo.local` addresses can start sign-in here, as a convenience filter. Access is decided by the API.

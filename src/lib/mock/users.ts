@@ -1,8 +1,6 @@
 /**
  * Mock platform users — one per control-plane role.
- * Mirrors EOP's src/lib/mock/users.ts pattern: email is the join key between
- * Firebase Auth and Postgres User.id (uid == id). Used by Login demo buttons
- * and scripts/seed-emulator-auth.ts.
+ * Mirrors EOP's src/lib/mock/users.ts pattern. Used by the Login demo buttons.
  *
  * Password for all demo accounts: demo1234 (MOCK_PLATFORM_PASSWORD)
  */

@@ -1,8 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from "firebase/auth";
-import { firebaseAuth, primeAuthToken } from "@/lib/firebase";
 import { apiRequest, ApiError } from "@/services/api";
-import { isLocalAuth } from "@/lib/auth-mode";
 import * as ownAuth from "@/lib/own-auth";
 
 export type PlatformRole = "platform_owner" | "platform_admin" | "platform_support" | "platform_finance";
@@ -64,121 +61,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isLocalAuth) {
-      // Own auth: restore the session from the refresh cookie, then follow later session loss.
-      let cancelled = false;
-      (async () => {
-        try {
-          if (await ownAuth.refresh()) {
-            let profile: PlatformUser;
-            try {
-              profile = await loadPlatformProfile();
-            } catch (err) {
-              // A session that cannot become a platform profile is ended, not left half signed in.
-              await ownAuth.logout();
-              throw err;
-            }
-            if (!cancelled) setUser(profile);
-          } else if (!cancelled) {
-            setUser(null);
-          }
-        } catch {
-          if (!cancelled) setUser(null);
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-      const stop = ownAuth.onSessionLost(() => setUser(null));
-      return () => {
-        cancelled = true;
-        stop();
-      };
-    }
-
-    const unsub = firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-      const email = firebaseUser.email?.toLowerCase() ?? "";
-      if (!isAllowedControlEmail(email)) {
-        try {
-          await firebaseSignOut(firebaseAuth);
-        } catch {
-          // Sign-out is best-effort; the local session is cleared below.
-        }
-        setUser(null);
-        setLoading(false);
-        return;
-      }
+    // Restore the session from the refresh cookie, then follow later session loss.
+    let cancelled = false;
+    (async () => {
       try {
-        primeAuthToken(await firebaseUser.getIdToken());
-        setUser(await loadPlatformProfile());
+        if (await ownAuth.refresh()) {
+          let profile: PlatformUser;
+          try {
+            profile = await loadPlatformProfile();
+          } catch (err) {
+            // A session that cannot become a platform profile is ended, not left half signed in.
+            await ownAuth.logout();
+            throw err;
+          }
+          if (!cancelled) setUser(profile);
+        } else if (!cancelled) {
+          setUser(null);
+        }
       } catch {
-        setUser(null);
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-    });
-    return () => unsub();
+    })();
+    const stop = ownAuth.onSessionLost(() => setUser(null));
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const GENERIC = new ApiError(401, "Invalid email or password.");
-    const lower = email.toLowerCase();
-    if (!isAllowedControlEmail(lower)) throw GENERIC;
-    if (isLocalAuth) {
-      try {
-        await ownAuth.login(email, password);
-      } catch (err) {
-        throw messageFor(err);
-      }
-      try {
-        setUser(await loadPlatformProfile());
-      } catch (err) {
-        await ownAuth.logout();
-        throw err;
-      }
-      return;
+    if (!isAllowedControlEmail(email.toLowerCase())) throw GENERIC;
+    try {
+      await ownAuth.login(email, password);
+    } catch (err) {
+      throw messageFor(err);
     }
     try {
-      const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      primeAuthToken(await cred.user.getIdToken());
       setUser(await loadPlatformProfile());
     } catch (err) {
-      if (err instanceof ApiError) throw err;
-      if (err instanceof Error && "code" in err && typeof (err as { code: string }).code === "string") {
-        const code = (err as { code: string }).code;
-        if (code.includes("network-request-failed")) throw new ApiError(0, "Network error. Check your connection and try again.");
-        if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential")
-          throw new ApiError(401, "Invalid email or password. If using emulator, run: npm run emulators && npm run seed:emulator");
-        if (code === "auth/too-many-requests") throw new ApiError(429, "Too many attempts. Try again later.");
-      }
+      await ownAuth.logout();
       throw err;
     }
   }, []);
 
   const logout = useCallback(async () => {
-    if (isLocalAuth) {
-      await ownAuth.logout();
-      setUser(null);
-      return;
-    }
-    primeAuthToken("");
-    await firebaseSignOut(firebaseAuth);
+    await ownAuth.logout();
     setUser(null);
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    if (isLocalAuth) {
-      try {
-        await ownAuth.forgotPassword(email);
-      } catch (err) {
-        throw messageFor(err);
-      }
-      return;
+    try {
+      await ownAuth.forgotPassword(email);
+    } catch (err) {
+      throw messageFor(err);
     }
-    await sendPasswordResetEmail(firebaseAuth, email);
   }, []);
 
   return <AuthContext.Provider value={{ user, loading, login, logout, resetPassword }}>{children}</AuthContext.Provider>;

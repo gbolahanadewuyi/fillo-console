@@ -5,8 +5,6 @@ const BASE = "https://api.test/v1";
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const session = (token: string) => json(200, { accessToken: token, expiresIn: 900, tokenType: "Bearer" });
 
-vi.mock("@/lib/firebase", () => ({ firebaseAuth: {}, getAuthToken: () => null }));
-vi.mock("firebase/auth", () => ({ signOut: vi.fn() }));
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -19,7 +17,6 @@ async function load() {
 
 beforeEach(() => {
   vi.stubEnv("VITE_API_URL", BASE);
-  vi.stubEnv("VITE_AUTH_PROVIDER", "local");
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   Object.defineProperty(window, "location", { value: { href: "/" }, writable: true });

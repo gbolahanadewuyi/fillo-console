@@ -18,7 +18,7 @@ import { mockPlatformUsers, MOCK_PLATFORM_PASSWORD, getPlatformRoleMeta } from "
 const schema = z.object({ email: z.string().trim().min(1, "Enter your email").email("Enter a valid email"), password: z.string().min(1, "Enter your password") });
 type Values = z.infer<typeof schema>;
 
-// The demo accounts exist only in the local Auth emulator. Real builds must not advertise them.
+// The demo accounts exist only in seeded development and staging data. Real builds must not advertise them.
 // Staging builds set VITE_SHOW_DEMO_ACCOUNTS and VITE_DEMO_PASSWORD; production builds set neither.
 const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
 const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || MOCK_PLATFORM_PASSWORD;

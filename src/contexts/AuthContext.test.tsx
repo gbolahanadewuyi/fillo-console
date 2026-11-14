@@ -13,9 +13,6 @@ vi.mock("@/services/api", async () => {
   return { ...actual, apiRequest };
 });
 vi.mock("@/lib/own-auth", () => ({ ...own, OwnAuthError: class extends Error { status = 401; } }));
-vi.mock("@/lib/auth-mode", () => ({ isLocalAuth: true }));
-vi.mock("@/lib/firebase", () => ({ firebaseAuth: { onAuthStateChanged: () => () => undefined }, primeAuthToken: vi.fn() }));
-vi.mock("firebase/auth", () => ({ signInWithEmailAndPassword: vi.fn(), signOut: vi.fn(), sendPasswordResetEmail: vi.fn() }));
 
 import { AuthProvider, useAuth } from "./AuthContext";
 
