@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, extractArray } from "@/services/api";
+import { apiDownload, apiRequest, apiUpload, extractArray } from "@/services/api";
 
 // ---------- Types ----------
 
@@ -903,21 +903,30 @@ export function useInvitePerson() {
 }
 
 // ── Importing a company's customers, suppliers and riders from a sheet ──────────────────────────────────────
+export type ImportKind = "customers" | "suppliers" | "riders";
+
 export interface ImportResult {
-  kind: "customers" | "suppliers" | "riders";
+  kind: ImportKind;
   dryRun: boolean;
   total: number;
   created: number;
+  /** `row` is the row in the uploaded file (the headings are row 1). */
   skipped: { row: number; name: string; reason: string }[];
+  /** Headings in the file the records have no use for. */
+  ignoredColumns?: string[];
 }
 
-export function useImportRecords() {
+/** Checks (dryRun) or imports an uploaded .xlsx or .csv. The reason travels in a header so it never lands in a URL. */
+export function useImportFile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, kind, rows, dryRun, reason }: { id: string; kind: ImportResult["kind"]; rows: Record<string, string>[]; dryRun: boolean; reason?: string }) =>
-      apiRequest<ImportResult>("POST", `/control/companies/${id}/import/${kind}`, { rows, dryRun, ...(reason ? { reason } : {}) }),
+    mutationFn: ({ id, kind, file, dryRun, reason }: { id: string; kind: ImportKind; file: Blob; dryRun: boolean; reason?: string }) =>
+      apiUpload<ImportResult>(`/control/companies/${id}/import/${kind}/file?dryRun=${dryRun}`, file, reason ? { "X-Import-Reason": encodeURIComponent(reason) } : {}),
     onSuccess: (_d, v) => {
       if (!v.dryRun) qc.invalidateQueries({ queryKey: ["control"] });
     },
   });
 }
+
+/** The template people fill in, as Excel or CSV. */
+export const downloadImportTemplate = (kind: ImportKind, format: "xlsx" | "csv") => apiDownload(`/control/import/template/${kind}?format=${format}`);

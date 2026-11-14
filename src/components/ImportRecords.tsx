@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorReference } from "@/components/ErrorReference";
 import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
-import { useImportRecords, type ImportResult } from "@/hooks/useControlApi";
+import { downloadImportTemplate, useImportFile, type ImportKind, type ImportResult } from "@/hooks/useControlApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { can } from "@/lib/permissions";
-import { sheetFromCsv, templateCsv, type ImportKind, type Sheet } from "@/lib/csv";
 
 const KINDS: { value: ImportKind; label: string; needs: string }[] = [
   { value: "customers", label: "Customers", needs: "a phone number for each (a name is optional)" },
@@ -21,26 +20,18 @@ const KINDS: { value: ImportKind; label: string; needs: string }[] = [
   { value: "riders", label: "Riders", needs: "a name and a phone number for each" },
 ];
 
-function download(kind: ImportKind) {
-  const url = URL.createObjectURL(new Blob([templateCsv(kind)], { type: "text/csv" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${kind}-template.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 /**
- * Customers, suppliers or riders from the sheet a client sent, in three steps: choose the file, see exactly what would happen (nothing is written
- * yet), then import with a reason. Rows that are wrong or already exist are listed with why, never half created.
+ * Customers, suppliers or riders from the sheet a client filled in, in three steps: choose the file (the template, as Excel or CSV), see exactly what
+ * would happen (nothing is written yet), then import with a reason. The API reads the file, so the format is the same here as in the customer app.
+ * Rows that are wrong or already exist are listed with why, never half created.
  */
 export function ImportRecords({ companyId }: { companyId: string }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const run = useImportRecords();
+  const run = useImportFile();
+  const input = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<ImportKind>("customers");
-  const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [check, setCheck] = useState<ImportResult | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -48,50 +39,55 @@ export function ImportRecords({ companyId }: { companyId: string }) {
 
   function reset(next?: ImportKind) {
     if (next) setKind(next);
-    setSheet(null);
-    setFileName("");
+    setFile(null);
     setCheck(null);
     setReason("");
     setError(null);
+    if (input.current) input.current.value = "";
   }
 
-  async function choose(file: File | undefined) {
-    if (!file) return;
-    reset();
-    setFileName(file.name);
-    const parsed = sheetFromCsv(await file.text(), kind);
-    setSheet(parsed);
-    if (parsed.rows.length === 0 || parsed.missing.length > 0) return;
+  async function choose(chosen: File | undefined) {
+    if (!chosen) return;
+    setCheck(null);
+    setError(null);
+    setFile(chosen);
     try {
-      setCheck(await run.mutateAsync({ id: companyId, kind, rows: parsed.rows, dryRun: true }));
+      setCheck(await run.mutateAsync({ id: companyId, kind, file: chosen, dryRun: true }));
     } catch (e) {
-      setError(e instanceof Error ? e : new Error("The sheet could not be checked."));
+      setError(e instanceof Error ? e : new Error("The file could not be checked."));
+    }
+  }
+
+  async function template(format: "xlsx" | "csv") {
+    try {
+      await downloadImportTemplate(kind, format);
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error("The template could not be downloaded."));
     }
   }
 
   async function runImport() {
-    if (!sheet || !check) return;
+    if (!file || !check) return;
     setError(null);
     try {
-      const done = await run.mutateAsync({ id: companyId, kind, rows: sheet.rows, dryRun: false, reason: reason.trim() });
+      const done = await run.mutateAsync({ id: companyId, kind, file, dryRun: false, reason: reason.trim() });
       toast({ title: `${done.created} ${kind} imported`, description: done.skipped.length ? `${done.skipped.length} rows were left out.` : undefined });
       setCheck(done);
-      setSheet(null);
+      setFile(null);
       setReason("");
     } catch (e) {
       setError(e instanceof Error ? e : new Error("The import failed."));
     }
   }
 
-  const problems = sheet && (sheet.rows.length === 0 ? "The file has no rows." : sheet.missing.length ? `The file needs a ${sheet.missing.join(" and a ")} column.` : null);
-  const ready = !!check && check.dryRun && check.created > 0 && !!sheet && reason.trim().length >= MIN_REASON_LENGTH && !run.isPending;
+  const ready = !!check && check.dryRun && check.created > 0 && !!file && reason.trim().length >= MIN_REASON_LENGTH && !run.isPending;
   const finished = !!check && !check.dryRun;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Import from a sheet</CardTitle>
-        <CardDescription>Customers, suppliers or riders from a CSV file. You see what will happen before anything is added.</CardDescription>
+        <CardDescription>Customers, suppliers or riders from the template, as Excel or CSV. You see what will happen before anything is added.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
@@ -103,19 +99,21 @@ export function ImportRecords({ companyId }: { companyId: string }) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="import-file">CSV file</Label>
+            <Label htmlFor="import-file">Excel or CSV file</Label>
             <div className="flex flex-wrap items-center gap-3">
-              <Input id="import-file" type="file" accept=".csv,text/csv" className="max-w-sm" disabled={!editable || run.isPending} onChange={(e) => void choose(e.target.files?.[0])} />
-              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => download(kind)}>
-                <Download className="mr-1 h-4 w-4" /> Template
+              <Input ref={input} id="import-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="max-w-sm" disabled={!editable || run.isPending} onChange={(e) => void choose(e.target.files?.[0])} />
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void template("xlsx")}>
+                <Download className="mr-1 h-4 w-4" /> Excel template
+              </Button>
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void template("csv")}>
+                <Download className="mr-1 h-4 w-4" /> CSV template
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">Needs {KINDS.find((k) => k.value === kind)?.needs}. Up to 500 rows at a time.</p>
           </div>
         </div>
 
-        {problems && <p role="alert" className="text-sm text-destructive">{problems}</p>}
-        {!!sheet?.ignored.length && !problems && <p className="text-xs text-muted-foreground">Left out of {fileName}: {sheet.ignored.join(", ")}.</p>}
+        {!!check?.ignoredColumns?.length && <p className="text-xs text-muted-foreground">Left out of {file?.name ?? "the file"}: {check.ignoredColumns.join(", ")}.</p>}
 
         {check && (
           <div className="space-y-3" aria-live="polite">

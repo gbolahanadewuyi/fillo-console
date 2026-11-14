@@ -72,6 +72,19 @@ export async function apiRequest<T = unknown>(
     return res.json() as Promise<T>;
   }
 
+  const res = await sendAuthed(path, init);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw apiError(res, err);
+  }
+
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+/** A signed-in request: the in-memory token (renewed from the refresh cookie when it is missing or expired), then the response as it came. */
+async function sendAuthed(path: string, init: RequestInit): Promise<Response> {
   const currentToken = () => getAccessToken();
 
   // The in-memory token is gone after a page reload, but the refresh cookie survives. Get a
@@ -82,7 +95,7 @@ export async function apiRequest<T = unknown>(
 
   // Fresh headers per attempt: a retry must not rewrite the headers of the request already sent.
   const send = (bearer: string) =>
-    fetchWithTimeout(`${API_BASE}${path}`, { ...init, headers: { ...headers, Authorization: `Bearer ${bearer}` } });
+    fetchWithTimeout(`${API_BASE}${path}`, { ...init, headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${bearer}` } });
 
   let res = await send(token);
 
@@ -96,14 +109,33 @@ export async function apiRequest<T = unknown>(
   }
 
   if (res.status === 401) handleSessionExpired();
+  return res;
+}
 
+/** Sends a file as the request body (an uploaded .xlsx or .csv) and reads the JSON answer. */
+export async function apiUpload<T = unknown>(path: string, file: Blob, headers: Record<string, string> = {}): Promise<T> {
+  const res = await sendAuthed(path, { method: "POST", headers: { "Content-Type": "application/octet-stream", ...headers }, body: file });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw apiError(res, err);
   }
-
-  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+/** Fetches a file (a template) with the sign-in attached, and saves it from the browser under the name the server gave it. */
+export async function apiDownload(path: string): Promise<void> {
+  const res = await sendAuthed(path, { method: "GET", headers: {} });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw apiError(res, err);
+  }
+  const name = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "download";
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function extractArray<T>(raw: unknown, hint?: string): T[] {
