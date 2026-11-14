@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
 import { QueryError } from "@/components/QueryError";
-import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "—");
 
@@ -18,7 +17,14 @@ export function JobsPanel() {
   const { user } = useAuth();
   const { toast } = useToast();
   const retry = useRetryOutbox();
-  const [confirming, setConfirming] = useState(false);
+  async function retryNow() {
+    try {
+      const { retried } = await retry.mutateAsync({});
+      toast({ title: "Retried", description: `${retried} event${retried === 1 ? "" : "s"} delivered again.` });
+    } catch (e) {
+      toast({ title: "Could not retry", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" as never });
+    }
+  }
   const canRetry = can(user?.platformRole, "outbox.retry");
 
   return (
@@ -68,22 +74,11 @@ export function JobsPanel() {
                 {data.outbox.lastError && data.outbox.stuck > 0 ? <div className="text-xs text-muted-foreground">Last error: {data.outbox.lastError}</div> : null}
               </div>
               {canRetry && data.outbox.stuck > 0 && (
-                <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>
-                  Retry stuck events
+                <Button size="sm" variant="outline" disabled={retry.isPending} onClick={() => void retryNow()}>
+                  {retry.isPending ? "Retrying…" : "Retry stuck events"}
                 </Button>
               )}
             </div>
-            <ConfirmWithReason
-              open={confirming}
-              onOpenChange={setConfirming}
-              title="Retry stuck notification events?"
-              description="Events that have waited over 15 minutes are delivered again. Events already delivered are never sent twice. This is recorded in the audit trail."
-              confirmLabel="Retry now"
-              onConfirm={async (reason) => {
-                const { retried } = await retry.mutateAsync({ reason });
-                toast({ title: "Retried", description: `${retried} event${retried === 1 ? "" : "s"} delivered again.` });
-              }}
-            />
 
             {data.recentFailures.length > 0 && (
               <div>

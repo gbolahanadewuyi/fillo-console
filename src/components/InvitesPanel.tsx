@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ConfirmWithReason } from "@/components/ConfirmWithReason";
+import { EditInviteDialog } from "@/components/EditInviteDialog";
+import { ConfirmAction } from "@/components/ConfirmAction";
 import { DataTable, SearchBox, type Column } from "@/components/DataTable";
 import { usePageSize } from "@/lib/page-size";
 
@@ -21,16 +22,21 @@ export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
   const pageSize = usePageSize();
   const { user } = useAuth();
   const t = useTableState({ prefix: "inv_", syncUrl: !companyId });
-  const [pending, setPending] = useState<{ invite: ControlInvite; action: "resend" | "revoke" } | null>(null);
+  const [revoking, setRevoking] = useState<ControlInvite | null>(null);
+  const [editing, setEditing] = useState<ControlInvite | null>(null);
   const { data, isLoading, error, refetch } = useControlInvites({ page: t.page, pageSize, companyId, search: t.filter("search"), status: apiValue(t.filter("status")).toUpperCase(), sort: t.sort });
   const act = useInviteAction();
   const { toast } = useToast();
   const assist = can(user?.platformRole, "user.assist");
 
-  async function confirm(reason: string) {
-    if (!pending) return;
-    const res = await act.mutateAsync({ id: pending.invite.id, action: pending.action, reason });
-    toast({ title: pending.action === "revoke" ? "Invitation revoked" : res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
+  /** Resending is routine and just happens. Revoking asks "are you sure": a revoked owner invitation cannot be sent again. */
+  async function resend(invite: ControlInvite) {
+    try {
+      const res = await act.mutateAsync({ id: invite.id, action: "resend" });
+      toast({ title: res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
+    } catch (e) {
+      toast({ title: "It did not work", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" as never });
+    }
   }
 
   const columns: Column<ControlInvite>[] = [
@@ -48,8 +54,9 @@ export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
       cell: (i) =>
         assist && (i.status === "pending" || i.status === "expired") ? (
           <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "resend" })}>Resend</Button>
-            {i.status === "pending" && <Button size="sm" variant="outline" onClick={() => setPending({ invite: i, action: "revoke" })}>Revoke</Button>}
+            <Button size="sm" variant="outline" onClick={() => setEditing(i)}>Edit</Button>
+            <Button size="sm" variant="outline" onClick={() => void resend(i)} disabled={act.isPending}>Resend</Button>
+            {i.status === "pending" && <Button size="sm" variant="outline" onClick={() => setRevoking(i)}>Revoke</Button>}
           </div>
         ) : null,
     },
@@ -84,17 +91,21 @@ export function InvitesPanel({ companyId }: { companyId?: string } = {}) {
         sort={t.sort}
         onSortChange={t.setSort}
       />
-      {pending && (
-        <ConfirmWithReason
+      {revoking && (
+        <ConfirmAction
           open
-          onOpenChange={(open) => !open && setPending(null)}
-          title={pending.action === "resend" ? `Resend invitation to ${pending.invite.email}` : `Revoke invitation for ${pending.invite.email}`}
-          description={pending.action === "resend" ? "They get a fresh link by email, valid for 7 days." : "The link stops working. The company's owner can invite them again."}
-          confirmLabel={pending.action === "resend" ? "Resend" : "Revoke"}
-          destructive={pending.action === "revoke"}
-          onConfirm={confirm}
+          onOpenChange={(open) => !open && setRevoking(null)}
+          title={`Revoke invitation for ${revoking.email}`}
+          description="The link stops working and cannot be sent again. The company's owner has to invite them again."
+          confirmLabel="Revoke"
+          destructive
+          onConfirm={async () => {
+            await act.mutateAsync({ id: revoking.id, action: "revoke" });
+            toast({ title: "Invitation revoked" });
+          }}
         />
       )}
+      {editing && <EditInviteDialog key={editing.id} invite={editing} open onOpenChange={(o) => { if (!o) setEditing(null); }} />}
     </div>
   );
 }

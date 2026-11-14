@@ -15,7 +15,6 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FieldError } from "@/components/FieldError";
-import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
 
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
 export const slugFromName = (name: string) =>
@@ -37,7 +36,6 @@ const schema = z.object({
   ownerEmail: z.string().trim().email("Enter a valid email"),
   stationName: z.string().trim().max(80),
   standardRoles: z.boolean(),
-  reason: z.string().trim().min(MIN_REASON_LENGTH, `Give a reason of at least ${MIN_REASON_LENGTH} characters`),
 });
 type Values = z.infer<typeof schema>;
 
@@ -67,7 +65,7 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [secondary, setSecondary] = useState<string | null>(null);
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", stationName: "", standardRoles: true, reason: "" },
+    defaultValues: { name: "", slug: "", mode: "RETAIL", planId: "", startAs: "TRIAL", trialDays: "30", ownerName: "", ownerEmail: "", stationName: "", standardRoles: true },
   });
   const name = watch("name");
   const slug = watch("slug");
@@ -129,7 +127,6 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
           standardRoles: v.standardRoles,
           roles: roles.map(draftPayload),
           ...(v.stationName.trim() ? { stationName: v.stationName.trim() } : {}),
-          reason: v.reason.trim(),
         });
       // The logo goes up right after the company exists, so the owner's link shows it from the first visit.
       let saved = true;
@@ -303,11 +300,6 @@ export function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpen
             <Button type="button" variant="outline" size="sm" onClick={() => setEditing({ index: null, draft: emptyDraft() })}>Add a role</Button>
           </section>
 
-          <section className="space-y-2">
-            <Label htmlFor="nc-reason">Reason</Label>
-            <Input id="nc-reason" placeholder="e.g. Signed on 5 Nov" aria-invalid={!!errors.reason} {...register("reason")} />
-            <FieldError id="nc-reason-error" message={errors.reason?.message} />
-          </section>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </form>
         <DialogFooter className="border-t px-6 py-4">

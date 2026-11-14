@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { QueryError } from "@/components/QueryError";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
+import { ConfirmAction } from "@/components/ConfirmAction";
 import { useToast } from "@/hooks/use-toast";
 
 type Pending = { kind: "user"; action: UserActionName } | { kind: "invite"; action: "resend" | "revoke" };
@@ -51,20 +52,28 @@ export default function UserAccess() {
   const { user, signIn, invite } = data;
   const isStaffAccount = data.findings.some((f) => f.code === "platform_account");
 
-  function startFinding(action: NonNullable<AccessFinding["action"]>) {
-    if (action === "invite.resend") setPending({ kind: "invite", action: "resend" });
-    else setPending({ kind: "user", action: action === "user.unlock" ? "unlock" : action === "user.sendReset" ? "send-reset" : "reactivate" });
+  // Suspending a person says why. Revoking an invitation asks "are you sure" (a revoked owner invitation cannot be sent again). The rest is routine and just happens.
+  const needsReason = (p: Pending) => p.kind === "user" && p.action === "suspend";
+  const needsSure = (p: Pending) => p.kind === "invite" && p.action === "revoke";
+
+  function start(p: Pending) {
+    if (needsReason(p) || needsSure(p)) setPending(p);
+    else perform(p).catch((e) => toast({ title: "It did not work", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" as never }));
   }
 
-  async function confirm(reason: string) {
-    if (!pending) return;
+  function startFinding(action: NonNullable<AccessFinding["action"]>) {
+    if (action === "invite.resend") start({ kind: "invite", action: "resend" });
+    else start({ kind: "user", action: action === "user.unlock" ? "unlock" : action === "user.sendReset" ? "send-reset" : "reactivate" });
+  }
+
+  async function perform(p: Pending, reason?: string) {
     try {
-      if (pending.kind === "user") {
-        await userAction.mutateAsync({ id: user.id, action: pending.action, reason });
-        toast({ title: DONE[pending.action] });
+      if (p.kind === "user") {
+        await userAction.mutateAsync({ id: user.id, action: p.action, ...(reason ? { reason } : {}) });
+        toast({ title: DONE[p.action] });
       } else {
-        const res = await inviteAction.mutateAsync({ id: invite!.id, action: pending.action, reason });
-        toast({ title: pending.action === "revoke" ? "Invitation revoked" : res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
+        const res = await inviteAction.mutateAsync({ id: invite!.id, action: p.action, ...(reason ? { reason } : {}) });
+        toast({ title: p.action === "revoke" ? "Invitation revoked" : res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
       }
     } catch (e) {
       throw e instanceof ApiError || e instanceof Error ? e : new Error("The action failed.");
@@ -149,15 +158,15 @@ export default function UserAccess() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {isStaffAccount && <p className="text-sm text-muted-foreground">Fillo staff accounts are managed outside the console.</p>}
-            {unlockOffered && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "user", action: "unlock" })}>Unlock login</Button>}
-            {resetOffered && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "user", action: "send-reset" })}>Send reset email</Button>}
-            {canResend && !onFinding.has("invite.resend") && <Button size="sm" variant="outline" onClick={() => setPending({ kind: "invite", action: "resend" })}>Resend invitation</Button>}
+            {unlockOffered && <Button size="sm" variant="outline" onClick={() => start({ kind: "user", action: "unlock" })}>Unlock login</Button>}
+            {resetOffered && <Button size="sm" variant="outline" onClick={() => start({ kind: "user", action: "send-reset" })}>Send reset email</Button>}
+            {canResend && !onFinding.has("invite.resend") && <Button size="sm" variant="outline" onClick={() => start({ kind: "invite", action: "resend" })}>Resend invitation</Button>}
             {assist && !isStaffAccount && invite?.status === "PENDING" && !signIn.hasLogin && (
-              <Button size="sm" variant="outline" onClick={() => setPending({ kind: "invite", action: "revoke" })}>Revoke invitation</Button>
+              <Button size="sm" variant="outline" onClick={() => start({ kind: "invite", action: "revoke" })}>Revoke invitation</Button>
             )}
-            {assist && !isStaffAccount && user.status === "suspended" && !onFinding.has("user.reactivate") && <Button size="sm" onClick={() => setPending({ kind: "user", action: "reactivate" })}>Reactivate</Button>}
+            {assist && !isStaffAccount && user.status === "suspended" && !onFinding.has("user.reactivate") && <Button size="sm" onClick={() => start({ kind: "user", action: "reactivate" })}>Reactivate</Button>}
             {suspend && !isStaffAccount && !user.isOwner && user.status === "active" && (
-              <Button size="sm" variant="destructive" onClick={() => setPending({ kind: "user", action: "suspend" })}>Suspend</Button>
+              <Button size="sm" variant="destructive" onClick={() => start({ kind: "user", action: "suspend" })}>Suspend</Button>
             )}
             {assist && !isStaffAccount && <Button size="sm" variant="outline" asChild><Link to={`/cases?new=1&companyId=${user.companyId}&userId=${user.id}`}>Open a case</Link></Button>}
             {!assist && <p className="text-sm text-muted-foreground">Your role can look but not change.</p>}
@@ -183,7 +192,7 @@ export default function UserAccess() {
         </CardContent>
       </Card>
 
-      {copy && (
+      {copy && pending && needsReason(pending) && (
         <ConfirmWithReason
           open
           onOpenChange={(open) => !open && setPending(null)}
@@ -191,7 +200,18 @@ export default function UserAccess() {
           description={copy.description}
           confirmLabel={copy.confirm}
           destructive={copy.destructive}
-          onConfirm={confirm}
+          onConfirm={(reason) => perform(pending, reason)}
+        />
+      )}
+      {copy && pending && needsSure(pending) && (
+        <ConfirmAction
+          open
+          onOpenChange={(open) => !open && setPending(null)}
+          title={copy.title}
+          description={copy.description}
+          confirmLabel={copy.confirm}
+          destructive={copy.destructive}
+          onConfirm={() => perform(pending)}
         />
       )}
     </div>
@@ -226,7 +246,7 @@ function COPY(p: Pending, name: string, email: string) {
   if (p.kind === "invite") {
     return p.action === "resend"
       ? { title: `Resend invitation to ${email}`, description: "They get a fresh link by email, valid for 7 days. The old link keeps working until it expires.", confirm: "Resend", destructive: false }
-      : { title: `Revoke invitation for ${email}`, description: "The link stops working. The company's owner can invite them again.", confirm: "Revoke", destructive: true };
+      : { title: `Revoke invitation for ${email}`, description: "The link stops working and cannot be sent again. The company's owner has to invite them again.", confirm: "Revoke", destructive: true };
   }
   switch (p.action) {
     case "unlock":

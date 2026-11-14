@@ -1,4 +1,4 @@
-/** The setup cards: what staff enter for a new company is sent to the right setting, with a reason. Uses Seegas's own onboarding values. */
+/** The setup cards: what staff enter for a new company is sent to the right setting, without asking why. Uses Seegas's own onboarding values. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,10 +30,10 @@ beforeEach(() => {
   apiRequest.mockImplementation(async (method: string) => (method === "GET" ? settings : { ok: true }));
 });
 
-async function save(buttonName: RegExp, reason = "From Seegas's onboarding document") {
+/** Saving is one click: setting a company up is routine, so nothing asks for a reason. */
+async function save(buttonName: RegExp) {
   fireEvent.click(screen.getByRole("button", { name: buttonName }));
-  type(await screen.findByLabelText(/reason/i), reason);
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(screen.queryByLabelText(/reason/i)).toBeNull();
 }
 
 describe("expense categories", () => {
@@ -53,7 +53,6 @@ describe("the setup cards", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/settings/payment.bank_details", {
         value: { bankName: "Moniepoint", accountName: "Saturn Epic Energy", accountNumber: "5409182671" },
-        reason: "From Seegas's onboarding document",
       }),
     );
   });
@@ -68,7 +67,7 @@ describe("the setup cards", () => {
     wrap(<CompanySetupSettings companyId="c1" />);
     type(await screen.findByLabelText("Limit (₦)"), "10000");
     await save(/Save expense approval limit/i);
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/settings/expense.default_approval_limit", { value: "10000.00", reason: "From Seegas's onboarding document" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/settings/expense.default_approval_limit", { value: "10000.00" }));
   });
 
   it("send the five categories as a list", async () => {
@@ -76,7 +75,7 @@ describe("the setup cards", () => {
     type(await screen.findByLabelText("Categories"), "Fuel/transport\nUtilities\nMaintenance\nBonus/incentives\nPetty cash");
     await save(/Save expense categories/i);
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/settings/expense.categories", { value: ["Fuel/transport", "Utilities", "Maintenance", "Bonus/incentives", "Petty cash"], reason: "From Seegas's onboarding document" }),
+      expect(apiRequest).toHaveBeenCalledWith("PATCH", "/control/companies/c1/settings/expense.categories", { value: ["Fuel/transport", "Utilities", "Maintenance", "Bonus/incentives", "Petty cash"] }),
     );
   });
 

@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorReference } from "@/components/ErrorReference";
-import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
 import { useCreateCompanyRole } from "@/hooks/useControlApi";
 import { RoleFields, draftPayload, draftProblem, emptyDraft, type RoleDraft } from "@/components/RoleFields";
 import { useToast } from "@/hooks/use-toast";
@@ -16,13 +15,11 @@ export function NewRoleDialog({ companyId, open, onOpenChange }: { companyId: st
   const { toast } = useToast();
   const create = useCreateCompanyRole();
   const [draft, setDraft] = useState<RoleDraft>(emptyDraft());
-  const [reason, setReason] = useState("");
   const [error, setError] = useState<unknown>(null);
-  const ready = draftProblem(draft) === null && reason.trim().length >= MIN_REASON_LENGTH && !create.isPending;
+  const ready = draftProblem(draft) === null && !create.isPending;
 
   function reset() {
     setDraft(emptyDraft());
-    setReason("");
     setError(null);
   }
 
@@ -30,7 +27,7 @@ export function NewRoleDialog({ companyId, open, onOpenChange }: { companyId: st
     if (!ready) return;
     setError(null);
     try {
-      await create.mutateAsync({ id: companyId, ...draftPayload(draft), reason: reason.trim() });
+      await create.mutateAsync({ id: companyId, ...draftPayload(draft) });
       toast({ title: "Role created", description: `${draft.name.trim()} can now be given to people.` });
       reset();
       onOpenChange(false);
@@ -48,10 +45,6 @@ export function NewRoleDialog({ companyId, open, onOpenChange }: { companyId: st
         </DialogHeader>
         <div className="space-y-4">
           <RoleFields draft={draft} onChange={setDraft} enabled={open} />
-          <div className="space-y-2">
-            <Label htmlFor="role-reason">Reason (kept in the audit trail)</Label>
-            <Textarea id="role-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} />
-          </div>
           {!!error && (
             <div role="alert" className="text-sm text-destructive">
               {(error as Error).message}

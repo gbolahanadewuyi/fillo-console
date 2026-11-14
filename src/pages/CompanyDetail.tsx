@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useControlCompany, useControlStations, useControlUsers, useControlActivity, useUnsuspendCompany, type ControlCompany } from "@/hooks/useControlApi";
+import { useControlCompany, useControlStations, useControlUsers, useControlActivity, useUnsuspendCompany, type ControlCompany, type ControlStation, type ControlUser } from "@/hooks/useControlApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -22,6 +22,9 @@ import { InvitesPanel } from "@/components/InvitesPanel";
 import { LOGO_TYPES, logoProblem, readAsDataUrl } from "@/lib/logo";
 import { DeleteCompanyDialog } from "@/components/DeleteCompanyDialog";
 import { AddPersonDialog } from "@/components/AddPersonDialog";
+import { EditStationDialog } from "@/components/EditStationDialog";
+import { EditOwnerDialog } from "@/components/EditOwnerDialog";
+import { isTestEnvironment } from "@/lib/environment";
 import { NewRoleDialog } from "@/components/NewRoleDialog";
 import { AddressPanel } from "@/components/AddressPanel";
 import { OrderEditingOverride } from "@/components/OrderEditingOverride";
@@ -143,15 +146,27 @@ export default function CompanyDetail() {
   const suspendMut = useSuspendCompany();
   const unsuspendMut = useUnsuspendCompany();
   const testMut = useSetCompanyTest();
-  const [confirm, setConfirm] = useState<"suspend" | "unsuspend" | "test" | null>(null);
+  const [confirm, setConfirm] = useState<"suspend" | "test" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [addingPerson, setAddingPerson] = useState(false);
   const [addingRole, setAddingRole] = useState(false);
+  const [editingStation, setEditingStation] = useState<ControlStation | null>(null);
+  const [editingOwner, setEditingOwner] = useState<ControlUser | null>(null);
   const navigate = useNavigate();
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
   if (error || !company) return <QueryError error={error ?? new Error("Company not found")} onRetry={() => void refetch()} what="this company" />;
   const suspended = company.status === "suspended";
+
+  /** Giving access back is the safe direction, so it just happens and is recorded. Suspending says why. */
+  async function reactivate() {
+    try {
+      await unsuspendMut.mutateAsync({ id: id! });
+      toast({ title: "Company reactivated", description: `${company!.name} can be used again.` });
+    } catch (e) {
+      toast({ title: "Could not reactivate", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -178,14 +193,14 @@ export default function CompanyDetail() {
             </Link>
           ))}
         </div>
-        {can(user?.platformRole, "company.test") && (
+        {isTestEnvironment && can(user?.platformRole, "company.test") && (
           <Button variant="outline" size="sm" onClick={() => setConfirm("test")}>
             {company.isTest ? "Mark as a real company" : "Mark as a test company"}
           </Button>
         )}
         {suspended
           ? can(user?.platformRole, "company.unsuspend") && (
-              <Button size="sm" onClick={() => setConfirm("unsuspend")}>
+              <Button size="sm" onClick={() => void reactivate()} disabled={unsuspendMut.isPending}>
                 Reactivate company
               </Button>
             )
@@ -229,17 +244,6 @@ export default function CompanyDetail() {
           onConfirm={async (reason) => {
             await suspendMut.mutateAsync({ id: id!, reason });
             toast({ title: "Company suspended", description: `${company.name} has been suspended.` });
-          }}
-        />
-        <ConfirmWithReason
-          open={confirm === "unsuspend"}
-          onOpenChange={(o) => !o && setConfirm(null)}
-          title={`Reactivate ${company.name}?`}
-          description="Its users can sign in again straight away. This is recorded in the audit trail."
-          confirmLabel="Reactivate company"
-          onConfirm={async (reason) => {
-            await unsuspendMut.mutateAsync({ id: id!, reason });
-            toast({ title: "Company reactivated", description: `${company.name} can be used again.` });
           }}
         />
       </div>
@@ -316,6 +320,7 @@ export default function CompanyDetail() {
             </CardHeader>
             <CardContent>
               {stationsError && <QueryError error={stationsError} what="stations" />}
+              {editingStation && <EditStationDialog key={editingStation.id} station={editingStation} open onOpenChange={(o) => { if (!o) setEditingStation(null); }} />}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -323,6 +328,7 @@ export default function CompanyDetail() {
                     <TableHead>Status</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Users</TableHead>
+                    {can(user?.platformRole, "company.override") && <TableHead className="w-[1%]"><span className="sr-only">Edit</span></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -334,11 +340,14 @@ export default function CompanyDetail() {
                       </TableCell>
                       <TableCell>{s.address ?? "—"}</TableCell>
                       <TableCell>{s.userCount ?? "—"}</TableCell>
+                      {can(user?.platformRole, "company.override") && (
+                        <TableCell><Button size="sm" variant="outline" onClick={() => setEditingStation(s)} aria-label={`Edit ${s.name}`}>Edit</Button></TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {(stations?.data?.length ?? 0) === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
                         No stations.
                       </TableCell>
                     </TableRow>
@@ -360,6 +369,7 @@ export default function CompanyDetail() {
                 </div>
               )}
               <AddPersonDialog companyId={id!} open={addingPerson} onOpenChange={setAddingPerson} />
+              {editingOwner && <EditOwnerDialog key={editingOwner.id} owner={editingOwner} open onOpenChange={(o) => { if (!o) setEditingOwner(null); }} />}
               <NewRoleDialog companyId={id!} open={addingRole} onOpenChange={setAddingRole} />
             </CardHeader>
             <CardContent>
@@ -371,6 +381,7 @@ export default function CompanyDetail() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    {can(user?.platformRole, "company.override") && <TableHead className="w-[1%]"><span className="sr-only">Edit</span></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -382,11 +393,14 @@ export default function CompanyDetail() {
                       <TableCell>
                         <StatusBadge status={u.status} />
                       </TableCell>
+                      {can(user?.platformRole, "company.override") && (
+                        <TableCell>{u.isOwner && <Button size="sm" variant="outline" onClick={() => setEditingOwner(u)} aria-label={`Edit owner ${u.name}`}>Edit owner</Button>}</TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {(users?.data?.length ?? 0) === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
                         No users.
                       </TableCell>
                     </TableRow>

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmWithReason } from "@/components/ConfirmWithReason";
+import { ErrorReference } from "@/components/ErrorReference";
 import { useCompanySettings, useSetCompanySetting } from "@/hooks/useControlApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -28,12 +28,27 @@ export function parseCategories(text: string): string[] {
 
 const MONEY = /^\d+(\.\d{1,2})?$/;
 
-/** A card whose Save asks for a reason first, like every platform change. */
-function Section({ title, description, valid, onSave, children }: { title: string; description?: string; valid: boolean; onSave: (reason: string) => Promise<unknown>; children: React.ReactNode }) {
+/** A card with its own Save. Setting a company up is routine work: it is recorded as done by Fillo, and nothing asks for a reason. */
+function Section({ title, description, valid, onSave, children }: { title: string; description?: string; valid: boolean; onSave: () => Promise<unknown>; children: React.ReactNode }) {
   const { user } = useAuth();
-  const [confirm, setConfirm] = useState(false);
   const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
   const editable = can(user?.platformRole, "company.override");
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave();
+      toast({ title: `${title} saved` });
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error("It could not be saved."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -42,19 +57,14 @@ function Section({ title, description, valid, onSave, children }: { title: strin
       </CardHeader>
       <CardContent className="space-y-4">
         <fieldset disabled={!editable} className="space-y-4">{children}</fieldset>
-        {editable && <Button variant="outline" disabled={!valid} onClick={() => setConfirm(true)}>Save {title.toLowerCase()}</Button>}
+        {!!error && (
+          <div role="alert" className="text-sm text-destructive">
+            {(error as Error).message}
+            <ErrorReference error={error} />
+          </div>
+        )}
+        {editable && <Button variant="outline" disabled={!valid || busy} onClick={() => void save()}>{busy ? "Saving…" : `Save ${title.toLowerCase()}`}</Button>}
       </CardContent>
-      <ConfirmWithReason
-        open={confirm}
-        onOpenChange={setConfirm}
-        title={`Save ${title.toLowerCase()}`}
-        description="This changes the company's settings. It is recorded as done by Fillo, with your reason."
-        confirmLabel="Save"
-        onConfirm={async (reason) => {
-          await onSave(reason);
-          toast({ title: `${title} saved` });
-        }}
-      />
     </Card>
   );
 }
@@ -78,7 +88,7 @@ function PaymentAccount({ companyId, value }: { companyId: string; value: Bank }
       title="Payment account"
       description="Shown to WhatsApp customers when they are asked to pay by transfer."
       valid={valid}
-      onSave={(reason) => save.mutateAsync({ id: companyId, key: "payment.bank_details", reason, value: { bankName: bank.bankName.trim(), accountName: bank.accountName.trim(), accountNumber: bank.accountNumber.trim(), ...(bank.notes?.trim() ? { notes: bank.notes.trim() } : {}) } })}
+      onSave={() => save.mutateAsync({ id: companyId, key: "payment.bank_details", value: { bankName: bank.bankName.trim(), accountName: bank.accountName.trim(), accountNumber: bank.accountNumber.trim(), ...(bank.notes?.trim() ? { notes: bank.notes.trim() } : {}) } })}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {field("bankName", "Bank or provider")}
@@ -101,7 +111,7 @@ function ExpenseLimit({ companyId, value }: { companyId: string; value: string |
       title="Expense approval limit"
       description="Expenses above this wait for the owner (or a role with a higher limit). Leave empty for no limit."
       valid={valid}
-      onSave={(reason) => save.mutateAsync({ id: companyId, key: "expense.default_approval_limit", reason, value: limit.trim() === "" ? null : Number(limit.trim()).toFixed(2) })}
+      onSave={() => save.mutateAsync({ id: companyId, key: "expense.default_approval_limit", value: limit.trim() === "" ? null : Number(limit.trim()).toFixed(2) })}
     >
       <div className="space-y-2">
         <Label htmlFor="expense-limit">Limit (₦)</Label>
@@ -121,7 +131,7 @@ function ExpenseCategories({ companyId, value }: { companyId: string; value: str
       title="Expense categories"
       description="One per line. Staff can still add a new one when recording an expense."
       valid={list.length > 0}
-      onSave={(reason) => save.mutateAsync({ id: companyId, key: "expense.categories", reason, value: list })}
+      onSave={() => save.mutateAsync({ id: companyId, key: "expense.categories", value: list })}
     >
       <div className="space-y-2">
         <Label htmlFor="expense-categories">Categories</Label>
@@ -138,7 +148,7 @@ function TradingHours({ companyId, value }: { companyId: string; value: Business
   const set = (key: WeekdayKey, next: DayHours) => setWeek({ ...week, [key]: next });
   const valid = WEEKDAYS.every((d) => { const h = week[d.key]; return h === null || (/^\d{2}:\d{2}$/.test(h.open) && /^\d{2}:\d{2}$/.test(h.close)); });
   return (
-    <Section title="Trading hours" description="When the business trades, day by day. A day can be closed." valid={valid} onSave={(reason) => save.mutateAsync({ id: companyId, key: "business.hours", reason, value: hoursFromWeek(week) })}>
+    <Section title="Trading hours" description="When the business trades, day by day. A day can be closed." valid={valid} onSave={() => save.mutateAsync({ id: companyId, key: "business.hours", value: hoursFromWeek(week) })}>
       <div className="space-y-2">
         {WEEKDAYS.map((d) => {
           const h = week[d.key];

@@ -45,22 +45,22 @@ describe("who can be invited", () => {
 });
 
 describe("adding a person", () => {
-  it("sends the invitation with the role, the only station, and the reason", async () => {
+  it("sends the invitation with the role and the only station, with no reason to give", async () => {
     wrap(<AddPersonDialog companyId="c1" open onOpenChange={() => undefined} />);
     type(await screen.findByLabelText("Email"), "abbas@example.com");
     fireEvent.click(screen.getByLabelText("Role"));
     fireEvent.click(await screen.findByRole("option", { name: "Manager" }));
-    type(screen.getByLabelText(/Reason/), "Station manager, from their onboarding document");
+    expect(screen.queryByLabelText(/Reason/)).toBeNull();
     const send = screen.getByRole("button", { name: "Send invitation" });
     await waitFor(() => expect(send).toBeEnabled()); // the only station is chosen for them
     fireEvent.click(send);
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/companies/c1/people", { email: "abbas@example.com", roleId: "r-mgr", stationId: "st1", reason: "Station manager, from their onboarding document" }),
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/control/companies/c1/people", { email: "abbas@example.com", roleId: "r-mgr", stationId: "st1" }),
     );
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Invitation sent" }));
   });
 
-  it("does not offer the Owner role, and cannot be sent without a valid email, a role and a reason", async () => {
+  it("does not offer the Owner role, and cannot be sent without a valid email and a role", async () => {
     wrap(<AddPersonDialog companyId="c1" open onOpenChange={() => undefined} />);
     const send = await screen.findByRole("button", { name: "Send invitation" });
     expect(send).toBeDisabled();
@@ -70,7 +70,6 @@ describe("adding a person", () => {
     expect(within(list).getByRole("option", { name: "Business Operations Lead" })).toBeInTheDocument();
     fireEvent.click(within(list).getByRole("option", { name: "Manager" }));
     type(screen.getByLabelText("Email"), "not-an-email");
-    type(screen.getByLabelText(/Reason/), "Station manager");
     expect(send).toBeDisabled();
     type(screen.getByLabelText("Email"), "ok@example.com");
     await waitFor(() => expect(send).toBeEnabled());
@@ -84,14 +83,13 @@ describe("permissions in a role", () => {
 });
 
 describe("creating a role", () => {
-  it("needs a name, at least one permission and a reason, then sends them with the limit", async () => {
+  it("needs a name and at least one permission, then sends them with the limit", async () => {
     wrap(<NewRoleDialog companyId="c1" open onOpenChange={() => undefined} />);
     const create = await screen.findByRole("button", { name: "Create role" });
     expect(create).toBeDisabled();
     type(screen.getByLabelText("Name"), "Business Operations Lead");
     type(screen.getByLabelText(/Expense approval limit/), "10000");
     type(screen.getByLabelText(/Daily spending allowance/), "50000");
-    type(screen.getByLabelText(/Reason/), "Seegas asked for this role");
     expect(create).toBeDisabled(); // no permission yet
     fireEvent.click(await screen.findByRole("checkbox", { name: "Approve expenses" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Edit orders" }));
@@ -100,7 +98,7 @@ describe("creating a role", () => {
     await waitFor(() => {
       const call = apiRequest.mock.calls.find((c) => c[0] === "POST");
       expect(call?.[1]).toBe("/control/companies/c1/roles");
-      expect(call?.[2]).toMatchObject({ name: "Business Operations Lead", spendingLimit: "10000.00", dailySpendingLimit: "50000.00", reason: "Seegas asked for this role" });
+      expect(call?.[2]).toMatchObject({ name: "Business Operations Lead", spendingLimit: "10000.00", dailySpendingLimit: "50000.00" });
       expect([...(call?.[2] as { permissions: string[] }).permissions].sort()).toEqual(["expenses.approve", "orders.edit"]);
     });
   });

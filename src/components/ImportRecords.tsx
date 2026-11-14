@@ -3,12 +3,10 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorReference } from "@/components/ErrorReference";
-import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
 import { downloadImportTemplate, useImportFile, type ImportKind, type ImportResult } from "@/hooks/useControlApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +31,6 @@ export function ImportRecords({ companyId }: { companyId: string }) {
   const [kind, setKind] = useState<ImportKind>("customers");
   const [file, setFile] = useState<File | null>(null);
   const [check, setCheck] = useState<ImportResult | null>(null);
-  const [reason, setReason] = useState("");
   const [error, setError] = useState<unknown>(null);
   const editable = can(user?.platformRole, "company.override");
 
@@ -41,7 +38,6 @@ export function ImportRecords({ companyId }: { companyId: string }) {
     if (next) setKind(next);
     setFile(null);
     setCheck(null);
-    setReason("");
     setError(null);
     if (input.current) input.current.value = "";
   }
@@ -70,17 +66,16 @@ export function ImportRecords({ companyId }: { companyId: string }) {
     if (!file || !check) return;
     setError(null);
     try {
-      const done = await run.mutateAsync({ id: companyId, kind, file, dryRun: false, reason: reason.trim() });
+      const done = await run.mutateAsync({ id: companyId, kind, file, dryRun: false });
       toast({ title: `${done.created} ${kind} imported`, description: done.skipped.length ? `${done.skipped.length} rows were left out.` : undefined });
       setCheck(done);
       setFile(null);
-      setReason("");
     } catch (e) {
       setError(e instanceof Error ? e : new Error("The import failed."));
     }
   }
 
-  const ready = !!check && check.dryRun && check.created > 0 && !!file && reason.trim().length >= MIN_REASON_LENGTH && !run.isPending;
+  const ready = !!check && check.dryRun && check.created > 0 && !!file && !run.isPending;
   const finished = !!check && !check.dryRun;
 
   return (
@@ -148,11 +143,7 @@ export function ImportRecords({ companyId }: { companyId: string }) {
         )}
 
         {editable && !finished && check && check.created > 0 && (
-          <div className="space-y-3 border-t pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="import-reason">Reason (kept in the audit trail)</Label>
-              <Textarea id="import-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="e.g. Customer list from their onboarding document" />
-            </div>
+          <div className="border-t pt-4">
             <Button onClick={runImport} disabled={!ready}>{run.isPending ? "Importing…" : `Import ${check.created} ${check.kind}`}</Button>
           </div>
         )}

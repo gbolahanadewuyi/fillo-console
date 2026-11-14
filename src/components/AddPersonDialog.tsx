@@ -2,11 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorReference } from "@/components/ErrorReference";
-import { MIN_REASON_LENGTH } from "@/components/ConfirmWithReason";
 import { useCompanyRoles, useControlStations, useInvitePerson } from "@/hooks/useControlApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,20 +24,18 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState("");
   const [stationId, setStationId] = useState("");
-  const [reason, setReason] = useState("");
   const [error, setError] = useState<unknown>(null);
 
   const choices = invitableRoles(roles.data ?? []);
   const stationList = stations.data?.data ?? [];
   // One station is the common case: nothing to choose.
   const station = stationId || (stationList.length === 1 ? stationList[0]!.id : "");
-  const ready = EMAIL.test(email.trim()) && !!roleId && !!station && reason.trim().length >= MIN_REASON_LENGTH && !invite.isPending;
+  const ready = EMAIL.test(email.trim()) && !!roleId && !!station && !invite.isPending;
 
   function reset() {
     setEmail("");
     setRoleId("");
     setStationId("");
-    setReason("");
     setError(null);
   }
 
@@ -47,7 +43,7 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
     if (!ready) return;
     setError(null);
     try {
-      const res = await invite.mutateAsync({ id: companyId, email: email.trim(), roleId, stationId: station, reason: reason.trim() });
+      const res = await invite.mutateAsync({ id: companyId, email: email.trim(), roleId, stationId: station });
       toast(res.emailSent ? { title: "Invitation sent", description: `${res.email} was invited as ${res.roleName}.` } : { title: "Invitation created, email not sent", description: "Resend it from the Invitations list.", variant: "destructive" as never });
       reset();
       onOpenChange(false);
@@ -83,10 +79,6 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
                 <SelectContent>{stationList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="person-reason">Reason (kept in the audit trail)</Label>
-            <Textarea id="person-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} placeholder="e.g. Station manager, from their onboarding document" />
           </div>
           {!!error && (
             <div role="alert" className="text-sm text-destructive">

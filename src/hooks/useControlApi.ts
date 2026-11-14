@@ -46,6 +46,7 @@ export interface ControlUser {
   name: string;
   email: string;
   phone?: string | null;
+  isOwner?: boolean;
   companyId: string;
   companyName?: string;
   stationId?: string | null;
@@ -344,7 +345,7 @@ export function useControlSearch(q: string) {
 }
 
 // ---------- Mutations ----------
-// Every write carries the reason the operator gave; the API refuses a missing one and records it in the audit trail.
+// A write that needs a reason carries the one the operator gave (the API refuses a missing one) and records it in the audit trail. Routine writes may leave it out.
 
 export function useSuspendCompany() {
   const qc = useQueryClient();
@@ -357,7 +358,7 @@ export function useSuspendCompany() {
 export function useUnsuspendCompany() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => apiRequest("POST", `/control/companies/${id}/unsuspend`, { reason }),
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) => apiRequest("POST", `/control/companies/${id}/unsuspend`, { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
@@ -383,9 +384,14 @@ export interface UserAccess {
 export interface ControlInvite {
   id: string;
   email: string;
+  /** The name the invitation was created with (an owner's, mostly). Empty on invitations made before names were kept. */
+  name?: string | null;
+  isOwner?: boolean;
   companyId: string;
   companyName: string;
+  roleId?: string;
   roleName: string;
+  stationId?: string | null;
   stationName: string | null;
   status: "pending" | "expired" | "accepted" | "revoked";
   expiresAt: string;
@@ -405,7 +411,7 @@ export type UserActionName = "unlock" | "send-reset" | "reactivate" | "suspend";
 export function useUserAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action, reason }: { id: string; action: UserActionName; reason: string }) => apiRequest<{ ok: true }>("POST", `/control/users/${id}/${action}`, { reason }),
+    mutationFn: ({ id, action, reason }: { id: string; action: UserActionName; reason?: string }) => apiRequest<{ ok: true }>("POST", `/control/users/${id}/${action}`, { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
@@ -421,7 +427,7 @@ export function useControlInvites(params: { page?: number; pageSize?: number; st
 export function useInviteAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action, reason }: { id: string; action: "resend" | "revoke"; reason: string }) =>
+    mutationFn: ({ id, action, reason }: { id: string; action: "resend" | "revoke"; reason?: string }) =>
       apiRequest<{ ok: true; emailSent?: boolean }>("POST", `/control/invites/${id}/${action}`, { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
@@ -647,7 +653,7 @@ export function useUpdateWhatsapp() {
 export function useRetryOutbox() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ reason }: { reason: string }) => apiRequest<{ retried: number }>("POST", "/control/outbox/retry", { reason }),
+    mutationFn: ({ reason }: { reason?: string }) => apiRequest<{ retried: number }>("POST", "/control/outbox/retry", { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
@@ -747,7 +753,7 @@ export interface CreateCompanyInput {
   standardRoles: boolean;
   roles?: { name: string; permissions: string[]; spendingLimit?: string; dailySpendingLimit?: string }[];
   stationName?: string;
-  reason: string;
+  reason?: string;
 }
 
 export interface CreatedCompany {
@@ -819,7 +825,7 @@ export function useCompanySettings(id: string) {
 export function useSetCompanySetting() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, key, value, reason }: { id: string; key: string; value: unknown; reason: string }) => apiRequest("PATCH", `/control/companies/${id}/settings/${key}`, { value, reason }),
+    mutationFn: ({ id, key, value, reason }: { id: string; key: string; value: unknown; reason?: string }) => apiRequest("PATCH", `/control/companies/${id}/settings/${key}`, { value, reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
@@ -888,7 +894,7 @@ export function usePermissionCatalogue(enabled = true) {
 export function useCreateCompanyRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; permissions: string[]; spendingLimit?: string; dailySpendingLimit?: string; reason: string }) => apiRequest<CompanyRole>("POST", `/control/companies/${id}/roles`, body),
+    mutationFn: ({ id, ...body }: { id: string; name: string; permissions: string[]; spendingLimit?: string; dailySpendingLimit?: string; reason?: string }) => apiRequest<CompanyRole>("POST", `/control/companies/${id}/roles`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
 }
@@ -896,7 +902,7 @@ export function useCreateCompanyRole() {
 export function useInvitePerson() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; email: string; roleId: string; stationId: string; reason: string }) =>
+    mutationFn: ({ id, ...body }: { id: string; email: string; roleId: string; stationId: string; reason?: string }) =>
       apiRequest<{ id: string; email: string; roleName: string; emailSent: boolean }>("POST", `/control/companies/${id}/people`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
@@ -930,3 +936,32 @@ export function useImportFile() {
 
 /** The template people fill in, as Excel or CSV. */
 export const downloadImportTemplate = (kind: ImportKind, format: "xlsx" | "csv") => apiDownload(`/control/import/template/${kind}?format=${format}`);
+
+// ── Correcting what staff set up: an invitation, a station, the owner ────────────────────────────────────────
+/** Corrects a pending invitation and, unless `resend` is false, sends it again. */
+export function useUpdateInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name?: string; email?: string; roleId?: string; stationId?: string; resend: boolean; reason?: string }) =>
+      apiRequest<{ ok: true; emailSent: boolean }>("PATCH", `/control/invites/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useUpdateCompanyStation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, stationId, ...body }: { companyId: string; stationId: string; name?: string; address?: string; phone?: string; reason?: string }) =>
+      apiRequest<{ id: string; name: string }>("PATCH", `/control/companies/${companyId}/stations/${stationId}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+export function useUpdateOwner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, ...body }: { companyId: string; name?: string; phone?: string | null; email?: string; reason?: string }) =>
+      apiRequest<{ id: string; name: string; email: string; phone: string | null; emailChanged: boolean }>("PATCH", `/control/companies/${companyId}/owner`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}

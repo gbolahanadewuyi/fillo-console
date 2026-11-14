@@ -9,6 +9,8 @@ const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
 vi.mock("@/services/api", async () => ({ ...(await vi.importActual<typeof import("@/services/api")>("@/services/api")), apiRequest }));
 let role: PlatformRole = "platform_support";
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { platformRole: role } }) }));
+const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast }) }));
 
 import UserAccess from "./UserAccess";
 
@@ -39,6 +41,7 @@ const mockAccess = (o?: Over) =>
   apiRequest.mockImplementation((method: string) => (method === "GET" ? Promise.resolve(access(o)) : Promise.resolve({ ok: true })));
 
 beforeEach(() => {
+  toast.mockReset();
   apiRequest.mockReset();
   role = "platform_support";
 });
@@ -52,25 +55,20 @@ describe("UserAccess", () => {
     expect(screen.getByText("Too many wrong passwords.")).toBeInTheDocument();
   });
 
-  it("unlocking asks for a reason and sends exactly it", async () => {
+  it("unlocking just happens: no prompt and no reason", async () => {
     mockAccess({ canSignIn: false, locked: true, findings: [locked] });
     show();
     fireEvent.click((await screen.findAllByRole("button", { name: "Unlock login" }))[0]!);
-    const confirm = screen.getByRole("button", { name: "Unlock" });
-    expect(confirm).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: "  Ada phoned us  " } });
-    fireEvent.click(confirm);
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/users/u1/unlock", { reason: "Ada phoned us" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/users/u1/unlock", {}));
+    expect(screen.queryByLabelText(/reason/i)).toBeNull();
   });
 
-  it("a refused action keeps the dialog open and shows the API's reason", async () => {
+  it("a refused action says why, in a message", async () => {
     mockAccess({ locked: true, findings: [locked] });
     apiRequest.mockImplementation((method: string) => (method === "GET" ? Promise.resolve(access({ locked: true, findings: [locked] })) : Promise.reject(new ApiError(409, "This person has no login to unlock"))));
     show();
     fireEvent.click((await screen.findAllByRole("button", { name: "Unlock login" }))[0]!);
-    fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: "because" } });
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("This person has no login to unlock");
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ description: "This person has no login to unlock" })));
   });
 
   it("support can reset and unlock but is never offered Suspend; admin is", async () => {
@@ -122,9 +120,7 @@ describe("UserAccess", () => {
     });
     show();
     fireEvent.click((await screen.findAllByRole("button", { name: "Resend invitation" }))[0]!);
-    fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: "asked again" } });
-    fireEvent.click(screen.getByRole("button", { name: "Resend" }));
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/invites/i1/resend", { reason: "asked again" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/invites/i1/resend", {}));
     expect(screen.queryByRole("button", { name: "Send reset email" })).not.toBeInTheDocument();
   });
 

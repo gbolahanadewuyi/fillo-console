@@ -48,7 +48,6 @@ describe("the logo field", () => {
     type(/Company name/, "Seegas");
     type(/Owner's name/, "Idris Akanbi");
     type(/Owner's email/, "o@x.com");
-    type(/^Reason/, "Paid for the year");
     type(/^Brand colour$/, "#E4572E");
     fireEvent.change(screen.getByLabelText(/Logo/), { target: { files: [new File(["x"], "logo.png", { type: "image/png" })] } });
     await screen.findByAltText("Chosen logo");
@@ -65,7 +64,6 @@ describe("roles at creation", () => {
     type(/Company name/, "Seegas");
     type(/Owner's name/, "Idris Akanbi");
     type(/Owner's email/, "o@x.com");
-    type(/^Reason/, "Paid for the year");
     type(/Station name/, "Seegas Utako Station");
     fireEvent.click(screen.getByRole("button", { name: "Add a role" }));
     type(/^Name$/, "Accountant");

@@ -13,6 +13,7 @@ import { Logo } from "@/components/Logo";
 import { FieldError } from "@/components/FieldError";
 import { useToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api";
+import { isTestEnvironment } from "@/lib/environment";
 import { mockPlatformUsers, MOCK_PLATFORM_PASSWORD, getPlatformRoleMeta } from "@/lib/mock/users";
 
 const schema = z.object({ email: z.string().trim().min(1, "Enter your email").email("Enter a valid email"), password: z.string().min(1, "Enter your password") });
@@ -20,7 +21,7 @@ type Values = z.infer<typeof schema>;
 
 // The demo accounts exist only in seeded development and staging data. Real builds must not advertise them.
 // Staging builds set VITE_SHOW_DEMO_ACCOUNTS and VITE_DEMO_PASSWORD; production builds set neither.
-const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
+const SHOW_DEMO_ACCOUNTS = isTestEnvironment;
 const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || MOCK_PLATFORM_PASSWORD;
 
 export default function Login() {

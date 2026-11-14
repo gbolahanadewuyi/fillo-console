@@ -43,17 +43,16 @@ describe("importing customers", () => {
     expect(apiUpload).toHaveBeenCalledWith("/control/companies/c1/import/customers/file?dryRun=true", file, {});
   });
 
-  it("imports only after a reason is given, sends it in a header, then says how many went in", async () => {
+  it("imports only after the check, with one click and no reason, then says how many went in", async () => {
     wrap(<ImportRecords companyId="c1" />);
     const file = sheet();
     choose(file);
     const button = await screen.findByRole("button", { name: "Import 2 customers" });
-    expect(button).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: "Customer list from Seegas" } });
-    expect(button).toBeEnabled();
+    expect(screen.queryByLabelText(/Reason/)).toBeNull();
+    expect(apiUpload).toHaveBeenCalledTimes(1); // only the check so far
     fireEvent.click(button);
     await waitFor(() => expect(apiUpload).toHaveBeenCalledTimes(2));
-    expect(apiUpload).toHaveBeenLastCalledWith("/control/companies/c1/import/customers/file?dryRun=false", file, { "X-Import-Reason": encodeURIComponent("Customer list from Seegas") });
+    expect(apiUpload).toHaveBeenLastCalledWith("/control/companies/c1/import/customers/file?dryRun=false", file, {});
     expect(await screen.findByText(/imported/)).toBeInTheDocument();
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "2 customers imported" }));
   });

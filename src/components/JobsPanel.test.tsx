@@ -65,15 +65,12 @@ describe("JobsPanel", () => {
     expect(screen.queryByRole("button", { name: "Retry stuck events" })).not.toBeInTheDocument();
   });
 
-  it("retrying needs a reason, then calls the API with it", async () => {
+  it("retrying just happens: no prompt, no reason", async () => {
     apiRequest.mockImplementation(async (method: string, path: string) => (method === "POST" ? { retried: 3 } : overview(3)));
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Retry stuck events" }));
-    const confirm = await screen.findByRole("button", { name: "Retry now" });
-    expect(confirm).toBeDisabled();
-    type(screen.getByLabelText(/reason/i), "events stuck after restart");
-    fireEvent.click(confirm);
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/outbox/retry", { reason: "events stuck after restart" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("POST", "/control/outbox/retry", {}));
+    expect(screen.queryByLabelText(/reason/i)).toBeNull();
   });
 
   it("says so when the jobs cannot be loaded", async () => {
