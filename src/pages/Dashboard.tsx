@@ -7,7 +7,6 @@ import { QueryError } from "@/components/QueryError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { naira } from "@/lib/format";
 
 const Section = ({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) => (
@@ -102,12 +101,7 @@ function Usage({ usage }: { usage: ControlOverview["usage"] }) {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle className="text-sm">Last 14 days</CardTitle>
-              <CardDescription>
-                What companies recorded in their own books, not Fillo&apos;s revenue. Lagos days. {usage.whatsappOrders7d} of the orders in the last 7 days came through WhatsApp.
-              </CardDescription>
-            </div>
+            <CardTitle className="text-sm">Last 14 days</CardTitle>
             <div className="flex gap-1" role="group" aria-label="Chart metric">
               <Button size="sm" variant={metric === "orders" ? "default" : "outline"} aria-pressed={metric === "orders"} onClick={() => setMetric("orders")}>
                 Orders
@@ -144,26 +138,17 @@ function Usage({ usage }: { usage: ControlOverview["usage"] }) {
  * is the Platform health page, not here; a customer's own failing integration still shows as a line in Requires attention.
  */
 export default function Dashboard() {
-  const [includeTest, setIncludeTest] = useState(false);
-  const { data: overview, isLoading, error, refetch } = useControlOverview(includeTest);
-  const { data: attention, error: attentionError } = useControlAttention(includeTest);
+  // Test companies are never counted here, so test sales cannot look like customer activity.
+  const { data: overview, isLoading, error, refetch } = useControlOverview();
+  const { data: attention, error: attentionError } = useControlAttention();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <Switch checked={includeTest} onCheckedChange={setIncludeTest} aria-label="Include test companies" />
-            <span>
-              Include test companies
-              {!includeTest && overview && overview.organisations.testExcluded > 0 && <span className="text-muted-foreground"> ({overview.organisations.testExcluded} hidden)</span>}
-            </span>
-          </label>
-          <Link to="/activity" className="text-primary hover:underline">
-            View activity →
-          </Link>
-        </div>
+        <Link to="/activity" className="text-sm text-primary hover:underline">
+          View activity →
+        </Link>
       </div>
 
       <Section title="Requires attention">

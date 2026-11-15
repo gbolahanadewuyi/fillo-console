@@ -129,11 +129,10 @@ describe("adoption and usage", () => {
     expect(screen.getByText("2 of 3")).toBeInTheDocument(); // 4 organisations, 1 cancelled
   });
 
-  it("usage says what it counts: companies' own records, not Fillo's revenue, against the 7 days before", async () => {
+  it("usage compares the last 7 days with the 7 before and draws 14 days", async () => {
     api();
     show();
-    expect(await screen.findByText(/not Fillo's revenue/)).toBeInTheDocument();
-    expect(screen.getByText(/came through WhatsApp/)).toHaveTextContent("2 of the orders");
+    expect(await screen.findByText("Payments recorded")).toBeInTheDocument();
     expect(screen.getByText("Payments recorded").closest("a")).toHaveTextContent("same as the 7 days before");
     expect(screen.getByTestId("bars")).toHaveTextContent("14 bars");
   });
@@ -156,14 +155,16 @@ describe("adoption and usage", () => {
   });
 });
 
-describe("test companies", () => {
-  it("are left out by default, with a note of how many are hidden, and included only when asked", async () => {
+describe("test companies and wording", () => {
+  it("are always left out, with no switch to include them and no timezone or helper wording", async () => {
     api();
     show();
-    expect(await screen.findByText("(1 hidden)")).toBeInTheDocument();
+    expect(await screen.findByText("Last 14 days")).toBeInTheDocument();
     expect(calls("/control/overview")).toEqual(["/control/overview?includeTest=false"]);
-    fireEvent.click(screen.getByRole("switch", { name: "Include test companies" }));
-    await waitFor(() => expect(calls("/control/overview")).toContain("/control/overview?includeTest=true"));
-    expect(calls("/control/attention")).toContain("/control/attention?includeTest=true");
+    expect(calls("/control/attention")).toEqual(["/control/attention?includeTest=false"]);
+    expect(screen.queryByRole("switch", { name: "Include test companies" })).toBeNull();
+    expect(screen.queryByText(/Lagos/)).toBeNull();
+    expect(screen.queryByText(/own books/)).toBeNull();
+    expect(screen.queryByText(/WhatsApp/)).toBeNull();
   });
 });
