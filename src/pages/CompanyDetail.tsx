@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { FieldError } from "@/components/FieldError";
-import { useUpdateCompanyBranding, useSuspendCompany, useSetCompanyTest } from "@/hooks/useControlApi";
+import { useUpdateCompanyBranding, useSuspendCompany, useSetCompanyTest, useCompanyRoles, type CompanyRole } from "@/hooks/useControlApi";
 import { ConfirmWithReason } from "@/components/ConfirmWithReason";
 import { IntegrationsTable } from "@/components/IntegrationsTable";
 import { BillingPanel } from "@/components/BillingPanel";
@@ -26,6 +26,7 @@ import { EditStationDialog } from "@/components/EditStationDialog";
 import { EditOwnerDialog } from "@/components/EditOwnerDialog";
 import { isTestEnvironment } from "@/lib/environment";
 import { NewRoleDialog } from "@/components/NewRoleDialog";
+import { EditRoleDialog } from "@/components/EditRoleDialog";
 import { AddressPanel } from "@/components/AddressPanel";
 import { OrderEditingOverride } from "@/components/OrderEditingOverride";
 import { CompanySetupSettings } from "@/components/CompanySetupSettings";
@@ -150,6 +151,8 @@ export default function CompanyDetail() {
   const [deleting, setDeleting] = useState(false);
   const [addingPerson, setAddingPerson] = useState(false);
   const [addingRole, setAddingRole] = useState(false);
+  const [editingRole, setEditingRole] = useState<CompanyRole | null>(null);
+  const companyRoles = useCompanyRoles(id!);
   const [editingStation, setEditingStation] = useState<ControlStation | null>(null);
   const [editingOwner, setEditingOwner] = useState<ControlUser | null>(null);
   const navigate = useNavigate();
@@ -410,6 +413,37 @@ export default function CompanyDetail() {
             </CardContent>
           </Card>
         
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Roles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {editingRole && <EditRoleDialog key={editingRole.id} companyId={id!} role={editingRole} open onOpenChange={(o) => { if (!o) setEditingRole(null); }} />}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Can do</TableHead>
+                    <TableHead>Spend, per expense / per day</TableHead>
+                    {can(user?.platformRole, "company.override") && <TableHead className="w-[1%]"><span className="sr-only">Edit</span></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(Array.isArray(companyRoles.data) ? companyRoles.data : []).map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.isSystemRole ? "Everything" : `${r.permissions.length} permissions`}</TableCell>
+                      <TableCell className="text-sm">{r.isSystemRole ? "No limit" : `${r.spendingLimit ?? "—"} / ${r.dailySpendingLimit ?? "—"}`}</TableCell>
+                      {can(user?.platformRole, "company.override") && (
+                        <TableCell>{!r.isSystemRole && <Button size="sm" variant="outline" onClick={() => setEditingRole(r)} aria-label={`Edit role ${r.name}`}>Edit</Button>}</TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
           <Card className="mt-4">
             <CardHeader>
               <CardTitle>Invitations</CardTitle>

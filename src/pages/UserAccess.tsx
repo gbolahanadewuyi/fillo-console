@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ChangeRoleDialog } from "@/components/ChangeRoleDialog";
 import { ArrowLeft, CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/lib/permissions";
@@ -38,6 +39,9 @@ export default function UserAccess() {
 
   const assist = can(staff?.platformRole, "user.assist");
   const suspend = can(staff?.platformRole, "user.suspend");
+  const remove = can(staff?.platformRole, "user.remove");
+  const navigate = useNavigate();
+  const [changingRole, setChangingRole] = useState(false);
 
   if (error) {
     return (
@@ -53,7 +57,7 @@ export default function UserAccess() {
   const isStaffAccount = data.findings.some((f) => f.code === "platform_account");
 
   // Suspending a person says why. Revoking an invitation asks "are you sure" (a revoked owner invitation cannot be sent again). The rest is routine and just happens.
-  const needsReason = (p: Pending) => p.kind === "user" && p.action === "suspend";
+  const needsReason = (p: Pending) => p.kind === "user" && (p.action === "suspend" || p.action === "remove");
   const needsSure = (p: Pending) => p.kind === "invite" && p.action === "revoke";
 
   function start(p: Pending) {
@@ -71,6 +75,7 @@ export default function UserAccess() {
       if (p.kind === "user") {
         await userAction.mutateAsync({ id: user.id, action: p.action, ...(reason ? { reason } : {}) });
         toast({ title: DONE[p.action] });
+        if (p.action === "remove") navigate("/users");
       } else {
         const res = await inviteAction.mutateAsync({ id: invite!.id, action: p.action, ...(reason ? { reason } : {}) });
         toast({ title: p.action === "revoke" ? "Invitation revoked" : res.emailSent ? "Invitation sent again" : "Invitation renewed, but the email did not go out" });
@@ -168,6 +173,10 @@ export default function UserAccess() {
             {suspend && !isStaffAccount && !user.isOwner && user.status === "active" && (
               <Button size="sm" variant="destructive" onClick={() => start({ kind: "user", action: "suspend" })}>Suspend</Button>
             )}
+            {remove && !isStaffAccount && !user.isOwner && <Button size="sm" variant="outline" onClick={() => setChangingRole(true)}>Change role</Button>}
+            {remove && !isStaffAccount && !user.isOwner && (
+              <Button size="sm" variant="destructive" onClick={() => start({ kind: "user", action: "remove" })}>Remove from company</Button>
+            )}
             {assist && !isStaffAccount && <Button size="sm" variant="outline" asChild><Link to={`/cases?new=1&companyId=${user.companyId}&userId=${user.id}`}>Open a case</Link></Button>}
             {!assist && <p className="text-sm text-muted-foreground">Your role can look but not change.</p>}
           </CardContent>
@@ -192,6 +201,7 @@ export default function UserAccess() {
         </CardContent>
       </Card>
 
+      <ChangeRoleDialog companyId={user.companyId} userId={user.id} userName={user.name} currentRole={user.roleName} open={changingRole} onOpenChange={setChangingRole} />
       {copy && pending && needsReason(pending) && (
         <ConfirmWithReason
           open
@@ -240,6 +250,7 @@ const DONE: Record<UserActionName, string> = {
   "send-reset": "Reset email sent",
   reactivate: "Person reactivated",
   suspend: "Person suspended",
+  remove: "Person removed",
 };
 
 function COPY(p: Pending, name: string, email: string) {
@@ -255,6 +266,8 @@ function COPY(p: Pending, name: string, email: string) {
       return { title: `Email ${name} a reset link`, description: `A password reset link goes to ${email}. They choose their own password. Nothing is changed until they use it.`, confirm: "Send email", destructive: false };
     case "reactivate":
       return { title: `Reactivate ${name}`, description: "They can use the app again straight away.", confirm: "Reactivate", destructive: false };
+    case "remove":
+      return { title: `Remove ${name} from the company`, description: "They are signed out everywhere and can never sign in again, and their seat is freed. Their orders, payments and other records are kept, and the same email can be invited again.", confirm: "Remove", destructive: true };
     case "suspend":
       return { title: `Suspend ${name}`, description: "They are refused on every request until reactivated. Their data is kept.", confirm: "Suspend", destructive: true };
   }

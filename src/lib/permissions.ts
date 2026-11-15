@@ -20,6 +20,7 @@ export type Action =
   | "outbox.retry"
   | "user.assist"
   | "user.suspend"
+  | "user.remove"
   | "case.write"
   | "billing.manage"
   | "whatsapp.manage";
@@ -45,6 +46,7 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "outbox.retry": ADMIN,
   "user.assist": SUPPORT,
   "user.suspend": ADMIN,
+  "user.remove": ADMIN,
   "case.write": SUPPORT,
   /** Assign a WhatsApp number to a company and move its setup along. */
   "whatsapp.manage": SUPPORT,

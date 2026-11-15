@@ -406,7 +406,7 @@ export function useUserAccess(id: string | undefined) {
   });
 }
 
-export type UserActionName = "unlock" | "send-reset" | "reactivate" | "suspend";
+export type UserActionName = "unlock" | "send-reset" | "reactivate" | "suspend" | "remove";
 
 export function useUserAction() {
   const qc = useQueryClient();
@@ -884,11 +884,31 @@ export interface CompanyRole {
 }
 
 export function useCompanyRoles(id: string) {
-  return useQuery({ queryKey: ["control", "company-roles", id], queryFn: () => apiRequest<CompanyRole[]>("GET", `/control/companies/${id}/roles`) });
+  return useQuery({ queryKey: ["control", "company-roles", id], queryFn: () => apiRequest<CompanyRole[]>("GET", `/control/companies/${id}/roles`), select: (roles) => (Array.isArray(roles) ? roles : []) });
 }
 
 export function usePermissionCatalogue(enabled = true) {
   return useQuery({ queryKey: ["control", "permissions"], queryFn: () => apiRequest<{ key: string; label: string }[]>("GET", "/control/permissions"), enabled, staleTime: 5 * 60_000 });
+}
+
+/** Change a company's existing role: its name, what it may do and its spending limits. */
+export function useUpdateCompanyRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, roleId, ...body }: { companyId: string; roleId: string; name?: string; permissions?: string[]; spendingLimit?: string | null; dailySpendingLimit?: string | null; reason?: string }) =>
+      apiRequest<CompanyRole>("PATCH", `/control/companies/${companyId}/roles/${roleId}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
+}
+
+/** Move a person to another role. */
+export function useUpdateCompanyUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, userId, ...body }: { companyId: string; userId: string; roleId?: string; stationId?: string; reason?: string }) =>
+      apiRequest<{ id: string }>("PATCH", `/control/companies/${companyId}/users/${userId}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
+  });
 }
 
 export function useCreateCompanyRole() {
