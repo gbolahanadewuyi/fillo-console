@@ -21,6 +21,7 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
   const roles = useCompanyRoles(companyId);
   const stations = useControlStations({ companyId, pageSize: 50 });
   const invite = useInvitePerson();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState("");
   const [stationId, setStationId] = useState("");
@@ -30,9 +31,10 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
   const stationList = stations.data?.data ?? [];
   // One station is the common case: nothing to choose.
   const station = stationId || (stationList.length === 1 ? stationList[0]!.id : "");
-  const ready = EMAIL.test(email.trim()) && !!roleId && !!station && !invite.isPending;
+  const ready = name.trim().length > 0 && EMAIL.test(email.trim()) && !!roleId && !!station && !invite.isPending;
 
   function reset() {
+    setName("");
     setEmail("");
     setRoleId("");
     setStationId("");
@@ -43,7 +45,7 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
     if (!ready) return;
     setError(null);
     try {
-      const res = await invite.mutateAsync({ id: companyId, email: email.trim(), roleId, stationId: station });
+      const res = await invite.mutateAsync({ id: companyId, name: name.trim(), email: email.trim(), roleId, stationId: station });
       toast(res.emailSent ? { title: "Invitation sent", description: `${res.email} was invited as ${res.roleName}.` } : { title: "Invitation created, email not sent", description: "Resend it from the Invitations list.", variant: "destructive" as never });
       reset();
       onOpenChange(false);
@@ -60,6 +62,10 @@ export function AddPersonDialog({ companyId, open, onOpenChange }: { companyId: 
           <DialogDescription>They get an invitation email, set their own password, and join with this role.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="person-name">Name</Label>
+            <Input id="person-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="person-email">Email</Label>
             <Input id="person-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />

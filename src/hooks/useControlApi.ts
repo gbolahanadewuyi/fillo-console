@@ -922,7 +922,7 @@ export function useCreateCompanyRole() {
 export function useInvitePerson() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; email: string; roleId: string; stationId: string; reason?: string }) =>
+    mutationFn: ({ id, ...body }: { id: string; name?: string; email: string; roleId: string; stationId: string; reason?: string }) =>
       apiRequest<{ id: string; email: string; roleName: string; emailSent: boolean }>("POST", `/control/companies/${id}/people`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["control"] }),
   });
