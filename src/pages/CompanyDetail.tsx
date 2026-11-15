@@ -61,6 +61,22 @@ function BrandingForm({ company }: { company: ControlCompany }) {
   const [logo, setLogo] = useState<string | null | undefined>(undefined);
   const [logoError, setLogoError] = useState<string | null>(null);
   const shownLogo = logo === undefined ? company.logoUrl : logo;
+  // The logo inside the app, separate from the main one: the same three states.
+  const [dashLogo, setDashLogo] = useState<string | null | undefined>(undefined);
+  const [dashLogoError, setDashLogoError] = useState<string | null>(null);
+  const shownDashLogo = dashLogo === undefined ? company.dashboardLogoUrl : dashLogo;
+
+  async function chooseDashLogo(file: File | undefined) {
+    setDashLogoError(null);
+    if (!file) return;
+    const problem = logoProblem(file);
+    if (problem) return setDashLogoError(problem);
+    try {
+      setDashLogo(await readAsDataUrl(file));
+    } catch (e) {
+      setDashLogoError(e instanceof Error ? e.message : "Could not read that file.");
+    }
+  }
 
   async function chooseLogo(file: File | undefined) {
     setLogoError(null);
@@ -76,8 +92,9 @@ function BrandingForm({ company }: { company: ControlCompany }) {
 
   async function save(values: BrandingValues) {
     try {
-      await brandingMut.mutateAsync({ id: company.id, payload: { ...values, ...(logo !== undefined ? { logoUrl: logo } : {}) } });
+      await brandingMut.mutateAsync({ id: company.id, payload: { ...values, ...(logo !== undefined ? { logoUrl: logo } : {}), ...(dashLogo !== undefined ? { dashboardLogoUrl: dashLogo } : {}) } });
       setLogo(undefined);
+      setDashLogo(undefined);
       toast({ title: "Branding updated" });
     } catch (e) {
       toast({ title: "Failed", description: e instanceof Error ? e.message : "Error", variant: "destructive" as never });
@@ -106,6 +123,26 @@ function BrandingForm({ company }: { company: ControlCompany }) {
           </div>
           <FieldError id="logo-error" message={logoError ?? undefined} />
           {logo !== undefined && <p className="text-xs text-muted-foreground">{logo === null ? "The logo will be removed when you save." : "The new logo is used when you save."}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="company-dashboard-logo">Logo inside the app</Label>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-16 w-44 items-center justify-center rounded border bg-muted/30 p-2">
+              {shownDashLogo ? <img src={shownDashLogo} alt={`${company.name} dashboard logo`} className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-muted-foreground">Uses the logo</span>}
+            </div>
+            {editable && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="company-dashboard-logo" type="file" accept={LOGO_TYPES.join(",")} className="max-w-xs" aria-describedby="dashboard-logo-error" onChange={(e) => void chooseDashLogo(e.target.files?.[0])} />
+                {shownDashLogo && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setDashLogo(null)}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          <FieldError id="dashboard-logo-error" message={dashLogoError ?? undefined} />
+          {dashLogo !== undefined && <p className="text-xs text-muted-foreground">{dashLogo === null ? "It will be removed when you save." : "The new logo is used when you save."}</p>}
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {([["primaryColor", "primary", "Primary colour"], ["secondaryColor", "secondary", "Secondary colour"]] as const).map(([name, id, label]) => {
