@@ -27,6 +27,7 @@ import { EditOwnerDialog } from "@/components/EditOwnerDialog";
 import { isTestEnvironment } from "@/lib/environment";
 import { NewRoleDialog } from "@/components/NewRoleDialog";
 import { EditRoleDialog } from "@/components/EditRoleDialog";
+import { OpenAsSupportDialog } from "@/components/OpenAsSupportDialog";
 import { AddressPanel } from "@/components/AddressPanel";
 import { OrderEditingOverride } from "@/components/OrderEditingOverride";
 import { CompanySetupSettings } from "@/components/CompanySetupSettings";
@@ -188,6 +189,7 @@ export default function CompanyDetail() {
   const [deleting, setDeleting] = useState(false);
   const [addingPerson, setAddingPerson] = useState(false);
   const [addingRole, setAddingRole] = useState(false);
+  const [openingSupport, setOpeningSupport] = useState(false);
   const [editingRole, setEditingRole] = useState<CompanyRole | null>(null);
   const companyRoles = useCompanyRoles(id!);
   const [editingStation, setEditingStation] = useState<ControlStation | null>(null);
@@ -233,6 +235,14 @@ export default function CompanyDetail() {
             </Link>
           ))}
         </div>
+        {can(user?.platformRole, "company.support") && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => setOpeningSupport(true)}>
+              Open as support
+            </Button>
+            <OpenAsSupportDialog companyId={id!} companyName={company.name} open={openingSupport} onOpenChange={setOpeningSupport} />
+          </>
+        )}
         {isTestEnvironment && can(user?.platformRole, "company.test") && (
           <Button variant="outline" size="sm" onClick={() => setConfirm("test")}>
             {company.isTest ? "Mark as a real company" : "Mark as a test company"}

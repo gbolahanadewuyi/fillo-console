@@ -21,6 +21,7 @@ export type Action =
   | "user.assist"
   | "user.suspend"
   | "user.remove"
+  | "company.support"
   | "case.write"
   | "billing.manage"
   | "whatsapp.manage";
@@ -47,6 +48,8 @@ const ACTION_ROLES: Record<Action, readonly PlatformRole[]> = {
   "user.assist": SUPPORT,
   "user.suspend": ADMIN,
   "user.remove": ADMIN,
+  /** Open a company's own app as one of its roles. */
+  "company.support": ADMIN,
   "case.write": SUPPORT,
   /** Assign a WhatsApp number to a company and move its setup along. */
   "whatsapp.manage": SUPPORT,

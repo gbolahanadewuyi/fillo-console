@@ -912,6 +912,14 @@ export function useUpdateCompanyUser() {
   });
 }
 
+/** Opens a company's own app as one of its roles, to help: returns the link that enters it. */
+export function useStartSupportSession() {
+  return useMutation({
+    mutationFn: ({ companyId, ...body }: { companyId: string; roleId: string; stationId?: string; reason: string }) =>
+      apiRequest<{ sessionId: string; expiresAt: string; url: string }>("POST", `/control/companies/${companyId}/support-session`, body),
+  });
+}
+
 export function useCreateCompanyRole() {
   const qc = useQueryClient();
   return useMutation({
